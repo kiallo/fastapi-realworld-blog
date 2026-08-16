@@ -4,6 +4,7 @@ from typing import Optional
 from pydantic import SecretStr, PostgresDsn
 from loguru import logger
 from app.core.settings.base import BaseAppSettings, AppEnvTypes
+from app.core.logging import setup_logging
 
 
 class AppSettings(BaseAppSettings):
@@ -28,7 +29,7 @@ class AppSettings(BaseAppSettings):
 
     # ===== 日志配置 =====
     logging_level: int = logging.INFO
-    loggers: tuple[str, ...] = ("uvicorn.asgi", "uvicorn.access")
+    loggers: tuple[str, ...] = ("uvicorn", "uvicorn.error", "uvicorn.access")
 
     # ===== 组合属性 — 不存 .env，由其他字段计算得出 =====
 
@@ -43,17 +44,10 @@ class AppSettings(BaseAppSettings):
         }
 
     def configure_logging(self) -> None:
-        """配置日志 — 统一使用 Loguru"""
-        logger.remove()  # 移除默认 handler
-        logger.add(
-            sys.stdout,
-            level=self.logging_level,
-            format=(
-                "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-                "<level>{level: <8}</level> | "
-                "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
-                "<level>{message}</level>"
-            ),
+        """配置日志 — 使用 InterceptHandler 统一接管"""
+        setup_logging(
+            log_level=self.logging_level,
+            loggers=self.loggers,
         )
 
 

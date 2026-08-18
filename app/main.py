@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.api import router as api_router
 from app.core.config import get_app_settings
 from app.core.events import create_start_app_handler, create_stop_app_handler
+from app.core.middleware import TimingMiddleware
 
 def get_application() -> FastAPI:
     """
@@ -30,6 +31,7 @@ def get_application() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    application.add_middleware(TimingMiddleware)
 
     # ⑤ 注册启停事件（预留 — 第 8 课填充数据库连接逻辑）
     application.add_event_handler("startup", create_start_app_handler(application))

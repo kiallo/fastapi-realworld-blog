@@ -15,3 +15,4 @@ class RWSchema(RWModel):
         populate_by_name=True,
         alias_generator=RWModel.model_config.get("alias_generator"),
     )
+

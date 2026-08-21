@@ -33,8 +33,8 @@ class ArticleForResponse(RWSchema):
     description: str
     body: str
     tag_list: List[str] = Field([], alias="tagList")
-    created_at: str = Field(..., alias="createdAt")
-    updated_at: str = Field(..., alias="updatedAt")
+    created_at: str
+    updated_at: str
     favorited: bool = False
     favorites_count: int = Field(0, alias="favoritesCount")
     author: dict = {}  # Profile 信息

@@ -12,8 +12,8 @@ class CommentForResponse(RWSchema):
     """评论响应"""
     id: int
     body: str
-    created_at: str = Field(..., alias="createdAt")
-    updated_at: str = Field(..., alias="updatedAt")
+    created_at: str
+    updated_at: str
     author: dict = {}
 
 

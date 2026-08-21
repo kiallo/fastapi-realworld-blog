@@ -31,9 +31,15 @@ class IDModelMixin(BaseModel):
 
 
 class DateTimeModelMixin(BaseModel):
-    """提供时间戳字段的 Mixin"""
-    created_at: datetime.datetime = Field(..., alias="createdAt")
-    updated_at: datetime.datetime = Field(..., alias="updatedAt")
+    """
+    提供时间戳字段的 Mixin
+
+    注意：不在此处设置 alias，由 RWModel 的 alias_generator 统一生成 camelCase 别名。
+    这样类型检查器能正确识别 populate_by_name 的构造函数签名。
+    """
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+    
     
 
     

@@ -16,5 +16,6 @@ class BaseAppSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        extra="ignore",  # 忽略 .env 中不属于本类的字段（如 DATABASE_URL、SECRET_KEY）
         # 可选：env_prefix="APP_"   # 如果你想统一前缀，可以用这个
     )

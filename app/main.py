@@ -1,9 +1,47 @@
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+import asyncpg
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
+
 from app.api.routes.api import router as api_router
 from app.core.config import get_app_settings
-from app.core.events import create_start_app_handler, create_stop_app_handler
 from app.core.middleware import TimingMiddleware
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    应用生命周期管理（替代已弃用的 on_event）
+
+    yield 之前 = 启动逻辑（startup）
+    yield 之后 = 关闭逻辑（shutdown）
+    """
+    # --- 启动 ---
+    settings = app.state.settings
+    logger.info("正在连接数据库...")
+    try:
+        pool = await asyncpg.create_pool(
+            dsn=str(settings.database_url),
+            min_size=2,
+            max_size=10,
+        )
+        app.state.pool = pool
+        logger.info("数据库连接池已就绪")
+    except Exception as e:
+        logger.warning(f"数据库连接失败，跳过: {e}")
+        app.state.pool = None
+
+    yield  # 应用在此处运行，处理请求
+
+    # --- 关闭 ---
+    logger.info("正在关闭数据库连接...")
+    if hasattr(app.state, "pool") and app.state.pool is not None:
+        await app.state.pool.close()
+    logger.info("数据库连接已关闭")
+
 
 def get_application() -> FastAPI:
     """
@@ -20,8 +58,11 @@ def get_application() -> FastAPI:
     # ② 配置日志
     settings.configure_logging()
 
-    # ③ 创建 FastAPI 实例
-    application = FastAPI(**settings.fastapi_kwargs)
+    # ③ 创建 FastAPI 实例（绑定生命周期）
+    application = FastAPI(lifespan=lifespan, **settings.fastapi_kwargs)
+
+    # 把配置挂到 app.state 上（方便各模块访问）
+    application.state.settings = settings
 
     # ④ 添加中间件（CORS — 允许跨域请求）
     application.add_middleware(
@@ -33,17 +74,11 @@ def get_application() -> FastAPI:
     )
     application.add_middleware(TimingMiddleware)
 
-    # ⑤ 注册启停事件（预留 — 第 8 课填充数据库连接逻辑）
-    application.add_event_handler("startup", create_start_app_handler(application))
-    application.add_event_handler("shutdown", create_stop_app_handler(application))
-
-    # ⑥ 注册异常处理器（预留 — 第 28 课填充）
-    # application.add_exception_handler(HTTPException, ...)
-
-    # ⑦ 挂载路由
+    # ⑤ 挂载路由
     application.include_router(api_router)
 
     return application
+
 
 # uvicorn 入口：uvicorn app.main:app
 app = get_application()

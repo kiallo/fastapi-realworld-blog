@@ -1,11 +1,9 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-
 import asyncpg
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
-
 from app.api.routes.api import router as api_router
 from app.core.config import get_app_settings
 from app.core.middleware import TimingMiddleware

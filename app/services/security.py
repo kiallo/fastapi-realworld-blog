@@ -1,7 +1,4 @@
 import bcrypt
-from passlib.context import CryptContext
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def generate_salt() -> str:
@@ -10,10 +7,19 @@ def generate_salt() -> str:
 
 
 def get_password_hash(salt: str, password: str) -> str:
-    """salt + password → bcrypt 哈希"""
-    return pwd_context.hash(salt + password)
+    """
+    密码 → 哈希
+
+    步骤：salt + password → bcrypt → 哈希字符串
+    输出示例：$2b$12$LJ3m4ys3GZfnYMz8qBkpGe...
+    """
+    return bcrypt.hashpw((salt + password).encode(), salt.encode()).decode()
 
 
 def verify_password(*, salt: str, password: str, hashed_password: str) -> bool:
-    """验证密码：salt + password 的哈希是否等于存储的哈希"""
-    return pwd_context.verify(salt + password, hashed_password)
+    """
+    验证密码
+
+    步骤：salt + 用户输入密码 → bcrypt → 与存储的哈希比较
+    """
+    return bcrypt.checkpw((salt + password).encode(), hashed_password.encode())

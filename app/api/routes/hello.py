@@ -1,9 +1,11 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends
 import asyncio
 import asyncpg
 from app.api.dependencies.database import get_connection_from_pool, get_repository
 from app.db.repositories.users import UsersRepository
-from app.api.dependencies.authentication import get_current_user
+from app.api.dependencies.authentication import get_current_user, get_current_user_authorizer
 from app.models.domain.users import UserInDB
 
 router = APIRouter()
@@ -54,3 +56,21 @@ async def me(current_user: UserInDB = Depends(get_current_user)):
         "email": current_user.email,
         "bio": current_user.bio,
     }
+
+
+@router.get("/required-auth")
+async def required_auth(
+    user: UserInDB = Depends(get_current_user_authorizer(required=True)),
+):
+    """必须认证"""
+    return {"username": user.username, "message": "你是认证用户"}
+
+
+@router.get("/optional-auth")
+async def optional_auth(
+    user: Optional[UserInDB] = Depends(get_current_user_authorizer(required=False)),
+):
+    """可选认证"""
+    if user:
+        return {"username": user.username, "message": "已登录"}
+    return {"username": None, "message": "匿名访客"}

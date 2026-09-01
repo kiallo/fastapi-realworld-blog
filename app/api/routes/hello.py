@@ -3,6 +3,8 @@ import asyncio
 import asyncpg
 from app.api.dependencies.database import get_connection_from_pool, get_repository
 from app.db.repositories.users import UsersRepository
+from app.api.dependencies.authentication import get_current_user
+from app.models.domain.users import UserInDB
 
 router = APIRouter()
 
@@ -41,4 +43,14 @@ async def repo_test(
     return {
         "repo_type": type(repo).__name__,
         "has_connection": repo.connection is not None,
+    }
+
+
+@router.get("/me")
+async def me(current_user: UserInDB = Depends(get_current_user)):
+    """需要认证的端点 — 测试认证依赖链"""
+    return {
+        "username": current_user.username,
+        "email": current_user.email,
+        "bio": current_user.bio,
     }

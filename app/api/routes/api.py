@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routes import hello, users, items
+from app.api.routes import hello, users, items, authentication
 
 router = APIRouter(prefix="/api")
 
@@ -7,3 +7,4 @@ router = APIRouter(prefix="/api")
 router.include_router(hello.router, tags=["system"])
 router.include_router(users.router)
 router.include_router(items.router)
+router.include_router(authentication.router) 

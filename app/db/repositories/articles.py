@@ -42,11 +42,13 @@ class ArticlesRepository(BaseRepository):
         # 任何步骤失败 → 自动回滚 → 数据库没有任何变化
         return await self._build_article_response(row)
 
+
     async def get_article_by_slug(self, *, slug: str) -> Article:
         row = await queries.get_article_by_slug(self.connection, slug=slug) # type: ignore
         if row is None:
             raise EntityDoesNotExist(f"文章 {slug} 不存在")
         return await self._build_article_response(row)
+
 
     async def _build_article_response(self, row: dict) -> Article:
         """组装完整的 Article 对象（含标签、作者信息）"""

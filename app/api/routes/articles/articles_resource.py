@@ -132,3 +132,23 @@ async def delete_article(
     """删除文章 — 只有作者能删除"""
     # TODO: 实现删除逻辑
     return None
+
+
+@router.get("/feed", response_model=ArticlesListInResponse)
+async def articles_feed(
+    filters: ArticlesFilters = Depends(),
+    current_user: UserInDB = Depends(get_current_user_authorizer()),
+):
+    """
+    关注 Feed — 你关注的人发布的最新文章
+
+    SQL 逻辑（伪代码）：
+    SELECT * FROM articles
+    WHERE author_id IN (
+        SELECT following_id FROM followers WHERE follower_id = :my_id
+    )
+    ORDER BY created_at DESC
+    LIMIT :limit OFFSET :offset
+    """
+    # TODO: 接入完整的 Feed 查询
+    return ArticlesListInResponse(articles=[], articlesCount=0)

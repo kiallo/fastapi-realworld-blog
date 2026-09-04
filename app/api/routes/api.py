@@ -3,6 +3,8 @@ from app.api.routes import hello, users, items, authentication
 from app.api.routes.articles.articles_resource import router as articles_router
 from app.api.routes.articles.articles_common import router as articles_common_router
 from app.api.routes.tags import router as tags_router
+from app.api.routes.profiles import router as profiles_router
+from app.api.routes.comments import router as comments_router
 
 router = APIRouter(prefix="/api")
 
@@ -14,3 +16,5 @@ router.include_router(authentication.router)
 router.include_router(articles_router)
 router.include_router(articles_common_router, prefix="/articles")
 router.include_router(tags_router)
+router.include_router(profiles_router)
+router.include_router(comments_router)

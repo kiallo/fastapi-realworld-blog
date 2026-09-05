@@ -50,6 +50,10 @@ def get_application() -> FastAPI:
     2. 多环境：dev/prod/test 自然切换
     3. 延迟初始化：不是导入时立即创建，而是显式调用时才创建
     """
+    from fastapi.exceptions import RequestValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+    from app.api.errors.http_error import http_error_handler
+    from app.api.errors.validation_error import http422_error_handler
     # ① 获取配置
     settings = get_app_settings()
 
@@ -74,6 +78,10 @@ def get_application() -> FastAPI:
 
     # ⑤ 挂载路由
     application.include_router(api_router)
+
+    # ⑥ 注册异常处理器
+    application.add_exception_handler(StarletteHTTPException, http_error_handler) # type: ignore
+    application.add_exception_handler(RequestValidationError, http422_error_handler) # type: ignore
 
     return application
 

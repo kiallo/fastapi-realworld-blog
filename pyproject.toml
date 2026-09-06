@@ -10,6 +10,15 @@ requires-python = ">=3.9,<4.0"
 readme = "README.md"
 packages = [{ include = "app" }]
 
+[tool.poetry]
+name = "fastapi-realworld-blog"
+version = "0.1.0"
+description = "一个符合 RealWorld 规范的博客 API"
+authors = ["kiallo@163.com"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "app" }]
+
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
 fastapi = ">=0.115.0,<1.0"
@@ -41,6 +50,7 @@ black = ">=24.0"
 isort = ">=5.13.0"
 mypy = ">=1.8.0"
 autoflake = ">=2.2.0"
+pytest-cov = "^7.1.0"
 
 
 [build-system]

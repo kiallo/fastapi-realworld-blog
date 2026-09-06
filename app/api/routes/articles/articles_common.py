@@ -1,89 +1,86 @@
-"""文章收藏/取消收藏 + Feed"""
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
-from app.api.dependencies.database import get_repository
-from app.api.dependencies.authentication import get_current_user_authorizer
+from fastapi import APIRouter, Depends, HTTPException, Response
+from starlette import status
+
 from app.api.dependencies.articles import get_article_by_slug_from_path
+from app.api.dependencies.authentication import get_current_user_authorizer
+from app.api.dependencies.database import get_repository
 from app.db.repositories.articles import ArticlesRepository
-from app.models.domain.users import UserInDB
 from app.models.domain.articles import Article
-from app.models.schemas.articles import (
-    ArticleForResponse, ArticleInResponse, ArticlesListInResponse,
-    ArticlesFilters,
-)
-from app.db.queries.queries import queries
+from app.models.domain.users import User
+from app.models.schemas.articles import ArticleForResponse, ArticleInResponse
+from app.resources import strings
 
 router = APIRouter()
 
 
-def _build_article_response(article: Article, author: dict, favorited: bool, favorites_count: int) -> ArticleInResponse:
-    return ArticleInResponse(
-        article=ArticleForResponse(
-            slug=article.slug,
-            title=article.title,
-            description=article.description,
-            body=article.body,
-            tagList=article.tags,
-            createdAt=str(article.created_at), # type: ignore
-            updatedAt=str(article.updated_at), # type: ignore
-            favorited=favorited,
-            favoritesCount=favorites_count,
-            author=author,
-        )
+def _article_to_response(article: Article) -> ArticleForResponse:
+    """Article 领域对象 → 响应 Schema"""
+    from app.models.schemas.profiles import ProfileForResponse
+
+    return ArticleForResponse(
+        slug=article.slug,
+        title=article.title,
+        description=article.description,
+        body=article.body,
+        tag_list=article.tags,
+        created_at=str(article.created_at),
+        updated_at=str(article.updated_at),
+        favorited=article.favorited,
+        favorites_count=article.favorites_count,
+        author=ProfileForResponse(
+            username=article.author.username,
+            bio=article.author.bio,
+            image=article.author.image,
+            following=article.author.following,
+        ),
     )
 
 
-@router.post("/{slug}/favorite", response_model=ArticleInResponse)
+@router.post("/{slug}/favorite", response_model=ArticleInResponse, name="articles:mark-favorite")
 async def favorite_article(
     article: Article = Depends(get_article_by_slug_from_path),
-    current_user: UserInDB = Depends(get_current_user_authorizer()),
+    current_user: User = Depends(get_current_user_authorizer()),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
-):
+) -> ArticleInResponse:
     """收藏文章"""
-    # 检查是否已收藏
-    already_favorited = await queries.is_article_favorited( # type: ignore
-        articles_repo.connection,
-        user_id=current_user.id,
-        article_id=article.id,
-    )
-
-    if already_favorited and already_favorited.get("favorited"):
+    if article.favorited:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="你已经收藏过这篇文章",
+            detail=strings.ALREADY_FAVORITED,
         )
 
-    # 写入收藏
-    await queries.add_to_favorites( # type: ignore
-        articles_repo.connection,
-        user_id=current_user.id,
-        article_id=article.id,
-    )
+    await articles_repo.add_article_into_favorites(article=article, user=current_user)
 
-    return _build_article_response(
-        article,
-        author={"username": current_user.username, "bio": current_user.bio, "image": current_user.image, "following": False},
-        favorited=True,
-        favorites_count=1,  # TODO: 准确计数
+    return ArticleInResponse(
+        article=_article_to_response(
+            article.model_copy(update={
+                "favorited": True,
+                "favorites_count": article.favorites_count + 1,
+            })
+        )
     )
 
 
-@router.delete("/{slug}/favorite", response_model=ArticleInResponse)
+@router.delete("/{slug}/favorite", response_model=ArticleInResponse, name="articles:unmark-favorite")
 async def unfavorite_article(
     article: Article = Depends(get_article_by_slug_from_path),
-    current_user: UserInDB = Depends(get_current_user_authorizer()),
+    current_user: User = Depends(get_current_user_authorizer()),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
-):
+) -> ArticleInResponse:
     """取消收藏"""
-    await queries.remove_from_favorites( # type: ignore
-        articles_repo.connection,
-        user_id=current_user.id,
-        article_id=article.id,
-    )
+    if not article.favorited:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=strings.ARTICLE_IS_NOT_FAVORITED,
+        )
 
-    return _build_article_response(
-        article,
-        author={"username": current_user.username, "bio": current_user.bio, "image": current_user.image, "following": False},
-        favorited=False,
-        favorites_count=0,
+    await articles_repo.remove_article_from_favorites(article=article, user=current_user)
+
+    return ArticleInResponse(
+        article=_article_to_response(
+            article.model_copy(update={
+                "favorited": False,
+                "favorites_count": article.favorites_count - 1,
+            })
+        )
     )

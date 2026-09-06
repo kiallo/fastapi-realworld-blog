@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_api/test_routes/test_comments.py tests/test_api/test_routes/test_articles.py tests/test_api/test_routes/test_profiles.py -v --tb=short)"
+    ]
+  }
+}

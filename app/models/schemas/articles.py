@@ -37,7 +37,7 @@ class ArticleForResponse(RWSchema):
     updated_at: str
     favorited: bool = False
     favorites_count: int = Field(0, alias="favoritesCount")
-    author: dict = {}  # Profile 信息
+    author: "ProfileForResponse"  # 延迟引用，避免循环导入
 
 
 class ArticleInResponse(RWSchema):
@@ -61,3 +61,8 @@ class ArticlesFilters(BaseModel):
     favorited: Optional[str] = None
     limit: int = DEFAULT_ARTICLES_LIMIT
     offset: int = DEFAULT_ARTICLES_OFFSET
+
+
+# 解决循环引用
+from app.models.schemas.profiles import ProfileForResponse  # noqa: E402
+ArticleForResponse.model_rebuild()

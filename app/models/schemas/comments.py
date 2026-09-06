@@ -14,7 +14,7 @@ class CommentForResponse(RWSchema):
     body: str
     created_at: str
     updated_at: str
-    author: dict = {}
+    author: "ProfileForResponse"  # 延迟引用
 
 
 class CommentInResponse(RWSchema):
@@ -25,3 +25,8 @@ class CommentInResponse(RWSchema):
 class CommentsListInResponse(RWSchema):
     """评论列表响应"""
     comments: List[CommentForResponse]
+
+
+# 解决循环引用
+from app.models.schemas.profiles import ProfileForResponse  # noqa: E402
+CommentForResponse.model_rebuild()

@@ -22,11 +22,11 @@ def _article_to_response(article: Article) -> ArticleForResponse:
         title=article.title,
         description=article.description,
         body=article.body,
-        tag_list=article.tags,
+        tag_list=article.tags, # type: ignore
         created_at=str(article.created_at),
         updated_at=str(article.updated_at),
         favorited=article.favorited,
-        favorites_count=article.favorites_count,
+        favorites_count=article.favorites_count, # type: ignore
         author=ProfileForResponse(
             username=article.author.username,
             bio=article.author.bio,

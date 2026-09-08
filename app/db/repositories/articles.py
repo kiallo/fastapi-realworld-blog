@@ -43,12 +43,12 @@ class ArticlesRepository(BaseRepository):
                 title=title,
                 description=description,
                 body=body,
-                author_id=author.id if hasattr(author, 'id') else None,
+                author_id=author.id if hasattr(author, 'id') else None, # type: ignore
             )
 
             # 步骤 2：创建不存在的标签
             if tags:
-                await self._tags_repo.create_tags_that_dont_exist(tags=tags)
+                await self._tags_repo.create_tags_that_dont_exist(tags=tags) # type: ignore
 
                 # 步骤 3：关联标签
                 await self._tags_repo.link_article_with_tags(
@@ -115,7 +115,7 @@ class ArticlesRepository(BaseRepository):
         # 基础查询：文章 + 作者用户名子查询
         author_subquery = (
             Query.from_(users_table)
-            .where(users_table.id == articles_table.author_id)
+            .where(users_table.id == articles_table.author_id) # type: ignore
             .select(users_table.username)
         )
 
@@ -139,12 +139,12 @@ class ArticlesRepository(BaseRepository):
             query_params.append(tag)
             tag_subquery = (
                 Query.from_(tags_table)
-                .where(tags_table.tag == AsyncpgParameter(param_idx))
+                .where(tags_table.tag == AsyncpgParameter(param_idx)) # type: ignore
                 .select(tags_table.tag)
             )
             query = query.join(articles_to_tags).on(
                 (articles_table.id == articles_to_tags.article_id)
-                & (articles_to_tags.tag == tag_subquery)
+                & (articles_to_tags.tag == tag_subquery) # type: ignore
             )
 
         # 按作者过滤
@@ -153,10 +153,10 @@ class ArticlesRepository(BaseRepository):
             query_params.append(author)
             author_id_subquery = (
                 Query.from_(users_table)
-                .where(users_table.username == AsyncpgParameter(param_idx))
+                .where(users_table.username == AsyncpgParameter(param_idx)) # type: ignore
                 .select(users_table.id)
             )
-            query = query.where(articles_table.author_id == author_id_subquery)
+            query = query.where(articles_table.author_id == author_id_subquery) # type: ignore
 
         # 按收藏者过滤
         if favorited:
@@ -164,22 +164,22 @@ class ArticlesRepository(BaseRepository):
             query_params.append(favorited)
             fav_subquery = (
                 Query.from_(users_table)
-                .where(users_table.username == AsyncpgParameter(param_idx))
+                .where(users_table.username == AsyncpgParameter(param_idx)) # type: ignore
                 .select(users_table.id)
             )
             query = query.join(favorites).on(
                 (articles_table.id == favorites.article_id)
-                & (favorites.user_id == fav_subquery)
+                & (favorites.user_id == fav_subquery) # type: ignore
             )
 
         # 分页
         param_idx += 1
         query_params.append(limit)
-        query = query.limit(AsyncpgParameter(param_idx))
+        query = query.limit(AsyncpgParameter(param_idx)) # type: ignore
 
         param_idx += 1
         query_params.append(offset)
-        query = query.offset(AsyncpgParameter(param_idx))
+        query = query.offset(AsyncpgParameter(param_idx)) # type: ignore
 
         # 排序
         query = query.orderby(articles_table.created_at, order=Order.desc)

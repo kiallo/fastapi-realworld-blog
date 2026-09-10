@@ -36,6 +36,9 @@ aiosql = ">=10.0"
 pypika = ">=0.48.0"
 alembic = ">=1.13.0"
 
+# 缓存
+redis = ">=4.2.0"
+
 # 安全
 passlib = { version = ">=1.7.0", extras = ["bcrypt"] }
 pyjwt = ">=2.8.0"

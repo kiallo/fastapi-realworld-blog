@@ -22,6 +22,11 @@ class AppSettings(BaseAppSettings):
     # ===== 数据库配置 =====
     database_url: PostgresDsn = "postgresql://postgres:postgres@localhost:5432/postgres" # type: ignore
 
+    # ===== Redis 配置 =====
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+
     # ===== JWT 认证配置 =====
     secret_key: SecretStr = SecretStr("dev-secret-key-change-in-production")
     jwt_token_prefix: str = "Token"

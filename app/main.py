@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from app.api.routes.api import router as api_router
 from app.core.config import get_app_settings
-from app.core.middleware import TimingMiddleware
+from app.core.middleware import TimingMiddleware, LoggingMiddleware
 
 
 @asynccontextmanager
@@ -75,6 +75,7 @@ def get_application() -> FastAPI:
         allow_headers=["*"],
     )
     application.add_middleware(TimingMiddleware)
+    application.add_middleware(LoggingMiddleware)
 
     # ⑤ 挂载路由
     application.include_router(api_router)

@@ -1,4 +1,5 @@
 import time
+import uuid
 from fastapi import Request
 from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -37,6 +38,37 @@ class TimingMiddleware(BaseHTTPMiddleware):
         )
 
         # ⑤ 添加响应头（可选 — 让前端也能看到耗时）
+        response.headers["X-Process-Time"] = f"{elapsed:.3f}s"
+
+        return response
+
+
+class LoggingMiddleware(BaseHTTPMiddleware):
+    """详细日志记录中间件"""
+    
+    async def dispatch(self, request: Request, call_next):
+        # 生成请求ID（用于追踪）
+        request_id = str(uuid.uuid4())[:8]
+
+        # 如果是POST/PUT请求，记录请求体（注意性能）
+        if request.method in ["POST", "PUT", "PATCH"]:
+            try:
+                body = await request.body()
+                if body:
+                    logger.info(f"   Body: {body.decode('utf-8')[:500]}")  # 限制长度
+            except:
+                pass
+
+        # 处理请求
+        start_time = time.monotonic()
+        response = await call_next(request)
+        elapsed = time.monotonic() - start_time
+
+        # 记录响应
+        logger.info(f"🟢 [{request_id}] {response.status_code} ({elapsed:.3f}s)")
+
+        # 添加自定义响应头
+        response.headers["X-Request-ID"] = request_id
         response.headers["X-Process-Time"] = f"{elapsed:.3f}s"
 
         return response

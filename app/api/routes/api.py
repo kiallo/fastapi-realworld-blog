@@ -5,6 +5,7 @@ from app.api.routes.articles.articles_common import router as articles_common_ro
 from app.api.routes.tags import router as tags_router
 from app.api.routes.profiles import router as profiles_router
 from app.api.routes.comments import router as comments_router
+from app.api.routes.demo_cache import router as demo_cache_router
 
 router = APIRouter(prefix="/api")
 
@@ -18,3 +19,4 @@ router.include_router(articles_common_router, prefix="/articles")
 router.include_router(tags_router)
 router.include_router(profiles_router, tags=["profiles"], prefix="/profiles")
 router.include_router(comments_router, tags=["comments"], prefix="/articles/{slug}/comments")
+router.include_router(demo_cache_router, tags=["demo"])

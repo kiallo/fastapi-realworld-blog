@@ -1,4 +1,5 @@
 from typing import AsyncGenerator
+from loguru import logger
 import redis.asyncio as redis
 from app.core.config import get_app_settings
 
@@ -17,14 +18,20 @@ class RedisDependency:
                 host=self.settings.redis_host,
                 port=self.settings.redis_port,
                 db=self.settings.redis_db,
-                decode_responses=True
+                password=self.settings.redis_password,
+                decode_responses=True,
+                # 连接池配置
+                max_connections=20,
+                retry_on_timeout=True
             )
         
         try:
             yield self._redis_client
+        except redis.ConnectionError as e:
+            logger.error(f"Redis 连接错误: {e}")
+            raise
         finally:
-            # 注意：这里不关闭连接，因为连接池会管理
-            pass
+            pass  # 连接池会管理连接
 
 
 # 创建全局实例

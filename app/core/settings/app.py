@@ -26,6 +26,7 @@ class AppSettings(BaseAppSettings):
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
+    redis_password: Optional[str] = None  # 如果 Redis 设置了密码
 
     # ===== JWT 认证配置 =====
     secret_key: SecretStr = SecretStr("dev-secret-key-change-in-production")

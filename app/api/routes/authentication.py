@@ -1,8 +1,9 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from app.core.config import get_app_settings
 from app.api.dependencies.database import get_repository
 from app.api.dependencies.authentication import get_current_user_authorizer
+from app.core.dependencies import get_token_storage
 from app.db.repositories.users import UsersRepository
 from app.models.schemas.users import (
     UserInCreate, UserInLogin, UserInResponse, UserWithToken,
@@ -12,6 +13,7 @@ from app.services.authentication import (
     check_username_is_taken, check_email_is_taken,
 )
 from app.services.jwt import create_access_token_for_user
+from app.services.token_storage import TokenStorage
 
 router = APIRouter(prefix="/users", tags=["authentication"])
 
@@ -29,11 +31,20 @@ def _create_user_response(user: UserInDB, token: str) -> UserInResponse:
     )
 
 
+def _get_device_info(request: Request) -> str:
+    """从请求中提取设备信息"""
+    user_agent = request.headers.get("User-Agent", "unknown")
+    # 简化处理，取前100字符
+    return user_agent[:100]
+
+
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=UserInResponse)
 async def register(
+    request: Request,
     user_create: UserInCreate,
     users_repo: UsersRepository = Depends(get_repository(UsersRepository)),
     settings=Depends(get_app_settings),
+    token_storage: TokenStorage = Depends(get_token_storage),
 ):
     """
     用户注册
@@ -72,14 +83,24 @@ async def register(
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
 
+    # 存储到 Redis
+    await token_storage.store_token(
+        username=user.username,
+        token=token,
+        expire_seconds=settings.access_token_expire_minutes * 60,
+        device_info=_get_device_info(request),
+    )
+
     return _create_user_response(user, token)
 
 
 @router.post("/login", response_model=UserInResponse)
 async def login(
+    request: Request,
     user_login: UserInLogin,
     users_repo: UsersRepository = Depends(get_repository(UsersRepository)),
     settings=Depends(get_app_settings),
+    token_storage: TokenStorage = Depends(get_token_storage),
 ):
     """
     用户登录
@@ -116,6 +137,14 @@ async def login(
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
 
+    # 存储到 Redis（覆盖旧 Token，实现单设备登录）
+    await token_storage.store_token(
+        username=user.username,
+        token=token,
+        expire_seconds=settings.access_token_expire_minutes * 60,
+        device_info=_get_device_info(request),
+    )
+
     return _create_user_response(user, token)
 
 
@@ -131,3 +160,20 @@ async def get_current_user_info(
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
     return _create_user_response(current_user, token)
+
+
+@router.post("/logout")
+async def logout(
+    current_user: UserInDB = Depends(get_current_user_authorizer()),
+    token_storage: TokenStorage = Depends(get_token_storage),
+):
+    """
+    用户登出
+
+    从 Redis 中删除用户的 Token，使其立即失效
+    """
+    revoked = await token_storage.revoke_token(current_user.username)
+    if revoked:
+        return {"message": "登出成功"}
+    else:
+        return {"message": "未找到活跃会话"}

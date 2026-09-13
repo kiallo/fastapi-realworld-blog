@@ -9,6 +9,7 @@ from app.api.routes.demo.cache import router as demo_cache_router
 from app.api.routes.demo.tasks import router as demo_tasks_router
 from app.api.routes.demo.websocket import router as demo_websocket_router
 from app.api.routes.demo.cache_stats import router as demo_cache_stats_router
+from app.api.routes.demo import session as session_demo
 
 router = APIRouter(prefix="/api")
 
@@ -26,3 +27,4 @@ router.include_router(demo_cache_stats_router, tags=["demo"], prefix="/cache")
 router.include_router(demo_cache_router, tags=["demo"], prefix="/cache")
 router.include_router(demo_tasks_router, tags=["demo"], prefix="/tasks")
 router.include_router(demo_websocket_router, tags=["demo"], prefix="/ws")
+router.include_router(session_demo.router, prefix="/demo",)

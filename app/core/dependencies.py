@@ -1,7 +1,9 @@
 from typing import AsyncGenerator
 from loguru import logger
 import redis.asyncio as redis
+from fastapi import Depends
 from app.core.config import get_app_settings
+from app.services.token_storage import TokenStorage
 
 
 class RedisDependency:
@@ -42,3 +44,18 @@ async def get_redis() -> AsyncGenerator[redis.Redis, None]:
     """获取 Redis 连接的依赖函数"""
     async for client in redis_dependency.get_redis_client():
         yield client
+
+
+async def get_token_storage(
+    redis_client: redis.Redis = Depends(get_redis),
+) -> AsyncGenerator["TokenStorage", None]:
+    """
+    获取 TokenStorage 的依赖函数
+
+    用法：
+        @router.post("/logout")
+        async def logout(token_storage: TokenStorage = Depends(get_token_storage)):
+            ...
+    """
+    from app.services.token_storage import TokenStorage
+    yield TokenStorage(redis_client)

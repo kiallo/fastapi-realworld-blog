@@ -3,9 +3,11 @@ from fastapi import Request, HTTPException, status, Depends
 from fastapi.security import APIKeyHeader
 from app.core.config import get_app_settings
 from app.api.dependencies.database import get_repository
+from app.core.dependencies import get_token_storage
 from app.db.repositories.users import UsersRepository
 from app.services.jwt import get_username_from_token
 from app.models.domain.users import UserInDB
+from app.services.token_storage import TokenStorage
 
 # ===== 自定义 APIKeyHeader =====
 
@@ -106,15 +108,51 @@ def get_current_user_authorizer(
 async def _get_current_user(
     token: str = Depends(get_token_from_header),
     users_repo: UsersRepository = Depends(get_repository(UsersRepository)),
+    token_storage: TokenStorage = Depends(get_token_storage),
     settings=Depends(get_app_settings),
 ) -> UserInDB:
-    """必选认证 — 未认证抛 403"""
+    """
+    必选认证 — 同时验证 JWT 和 Redis
+
+    流程：
+    1. 检查 Token 是否存在
+    2. 解析 JWT，获取用户名
+    3. 检查 Token 是否在 Redis 白名单中
+    4. 查询用户
+    """
     if not token:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="需要认证",
         )
-    return await _resolve_user(token, users_repo, settings)
+
+    # 解析 JWT
+    username = get_username_from_token(
+        token=token,
+        secret_key=settings.secret_key.get_secret_value(),
+    )
+
+    if username is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token 无效或已过期",
+        )
+
+    # 验证 Redis 白名单
+    is_valid = await token_storage.is_token_valid(username, token)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="会话已失效，请重新登录",
+        )
+
+    try:
+        return await users_repo.get_user_by_username(username=username)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="用户不存在",
+        )
 
 
 async def _get_current_user_optional(

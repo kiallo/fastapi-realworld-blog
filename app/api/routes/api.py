@@ -15,9 +15,9 @@ router = APIRouter(prefix="/api")
 
 # 挂载各模块路由
 router.include_router(hello.router, tags=["system"])
+router.include_router(authentication.router) 
 router.include_router(users.router)
 router.include_router(items.router)
-router.include_router(authentication.router) 
 router.include_router(articles_router, tags=["articles"], prefix="/articles")
 router.include_router(articles_common_router, prefix="/articles")
 router.include_router(tags_router)

@@ -20,7 +20,7 @@ class RWAPIKeyHeader(APIKeyHeader):
         except HTTPException as http_exc:
             # 将 Starlette 的 HTTPException 转为 FastAPI 的格式
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="认证凭据缺失或无效",
             )
 
@@ -64,7 +64,7 @@ async def get_current_user(
     """
     if not token:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="需要认证",
         )
 
@@ -75,7 +75,7 @@ async def get_current_user(
 
     if username is None:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 无效或已过期",
         )
 
@@ -84,7 +84,7 @@ async def get_current_user(
         return user
     except Exception:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在",
         )
 
@@ -122,7 +122,7 @@ async def _get_current_user(
     """
     if not token:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="需要认证",
         )
 
@@ -134,7 +134,7 @@ async def _get_current_user(
 
     if username is None:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 无效或已过期",
         )
 
@@ -142,7 +142,7 @@ async def _get_current_user(
     is_valid = await token_storage.is_token_valid(username, token)
     if not is_valid:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="会话已失效，请重新登录",
         )
 
@@ -150,7 +150,7 @@ async def _get_current_user(
         return await users_repo.get_user_by_username(username=username)
     except Exception:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在",
         )
 
@@ -182,7 +182,7 @@ async def _resolve_user(
 
     if username is None:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 无效或已过期",
         )
 
@@ -190,6 +190,6 @@ async def _resolve_user(
         return await users_repo.get_user_by_username(username=username)
     except Exception:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在",
         )

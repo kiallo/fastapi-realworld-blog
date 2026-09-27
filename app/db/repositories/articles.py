@@ -43,7 +43,7 @@ class ArticlesRepository(BaseRepository):
                 title=title,
                 description=description,
                 body=body,
-                author_id=author.id if hasattr(author, 'id') else None, # type: ignore
+                author_id=author.id,                         # type: ignore
             )
 
             # 步骤 2：创建不存在的标签
@@ -56,8 +56,8 @@ class ArticlesRepository(BaseRepository):
                 )
 
         # 任何步骤失败 → 自动回滚 → 数据库没有任何变化
-        return await self._build_article_from_row(row, requested_user=author)
-
+        # ★ 第 59 行：不再用 RETURNING 那行（它没有 author_username），改成事务外重新查
+        return await self.get_article_by_slug(slug=slug, requested_user=author)
 
     async def get_article_by_slug(
         self, *, slug: str, requested_user: Optional[User] = None,

@@ -4,7 +4,7 @@ from pypika import Table, Query, Parameter, CustomFunction
 # ===== 自定义 Parameter：适配 asyncpg 的 $1, $2... 占位符 =====
 class AsyncpgParameter(Parameter):
     def __init__(self, index: int) -> None:
-        super().__init__(f"${index + 1}")
+        super().__init__(f"${index}")
 
 
 # ===== 表定义（Typed Table）=====

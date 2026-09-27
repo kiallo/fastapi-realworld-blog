@@ -2,7 +2,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from app.core.config import get_app_settings
 from app.api.dependencies.database import get_repository
-from app.api.dependencies.authentication import get_current_user_authorizer
+from app.api.dependencies.authentication import get_current_user_authorizer, get_token_from_header
 from app.core.dependencies import get_token_storage
 from app.db.repositories.users import UsersRepository
 from app.models.schemas.users import (
@@ -151,14 +151,9 @@ async def login(
 @router.get("/me", response_model=UserInResponse)
 async def get_current_user_info(
     current_user: UserInDB = Depends(get_current_user_authorizer()),
-    settings=Depends(get_app_settings),
+    token: str = Depends(get_token_from_header), 
 ):
     """获取当前登录用户信息"""
-    token = create_access_token_for_user(
-        user_username=current_user.username,
-        secret_key=settings.secret_key.get_secret_value(),
-        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
-    )
     return _create_user_response(current_user, token)
 
 

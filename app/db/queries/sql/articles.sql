@@ -1,16 +1,10 @@
 -- name: get_article_by_slug^
 -- 根据 slug 获取文章
-SELECT
-    id,
-    slug,
-    title,
-    description,
-    body,
-    author_id,
-    created_at,
-    updated_at
-FROM articles
-WHERE slug = :slug;
+SELECT a.id, a.slug, a.title, a.description, a.body,
+       a.created_at, a.updated_at,
+       (SELECT username FROM users WHERE id = a.author_id) AS author_username
+FROM articles a
+WHERE a.slug = :slug;
 
 
 -- name: create_article<!

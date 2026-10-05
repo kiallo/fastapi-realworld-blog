@@ -42,6 +42,8 @@ redis = ">=4.2.0"
 # 安全
 passlib = { version = ">=1.7.0", extras = ["bcrypt"] }
 pyjwt = ">=2.8.0"
+gunicorn = ">=21.0"
+uvicorn-worker = ">=0.4"
 
 
 [tool.poetry.group.dev.dependencies]

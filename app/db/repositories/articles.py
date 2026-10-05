@@ -81,7 +81,7 @@ class ArticlesRepository(BaseRepository):
         updated.description = description or updated.description
 
         async with self.connection.transaction():
-            result = await queries.update_article(  # type: ignore
+            new_updated_at = await queries.update_article(  # type: ignore
                 self.connection,
                 slug=article.slug,
                 author_username=article.author.username,
@@ -90,7 +90,7 @@ class ArticlesRepository(BaseRepository):
                 new_body=updated.body,
                 new_description=updated.description,
             )
-            updated.updated_at = result["updated_at"]
+            updated.updated_at = new_updated_at # type: ignore
 
         return updated
 

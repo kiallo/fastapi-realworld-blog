@@ -28,7 +28,8 @@ UPDATE articles
 SET slug        = :new_slug,
     title       = :new_title,
     body        = :new_body,
-    description = :new_description
+    description = :new_description,
+    updated_at  = now()                     
 WHERE slug = :slug
   AND author_id = (SELECT id FROM users WHERE username = :author_username)
 RETURNING updated_at;

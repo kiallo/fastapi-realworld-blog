@@ -10,3 +10,4 @@ postgres-data/
 .DS_Store
 Thumbs.db
 *.log
+.env.production

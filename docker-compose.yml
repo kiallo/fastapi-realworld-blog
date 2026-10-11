@@ -22,7 +22,10 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      # 左边是宿主机的端口，右边是容器内的端口。
+      # 左边这个 18000 必须避开 Windows 的保留端口段（约 1024–15000），
+      # 否则会报 [WinError 10013] 权限不允许，而不是「端口已占用」。
+      - "18000:18000"
     environment:
       APP_ENV: prod
       DATABASE_URL: postgresql://postgres:postgres@db:5432/realworld
@@ -32,7 +35,7 @@ services:
         condition: service_healthy
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+             uvicorn app.main:app --host 0.0.0.0 --port 18000"
 
 volumes:
   postgres_data:

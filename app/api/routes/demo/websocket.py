@@ -67,7 +67,7 @@ async def websocket_endpoint(websocket: WebSocket, username: str):
     WebSocket 聊天室端点
     
     使用方式：
-    ws://localhost:8000/api/ws/ws/你的用户名
+    ws://localhost:18000/api/ws/ws/你的用户名
     """
     # 连接
     await manager.connect(websocket, username)

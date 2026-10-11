@@ -3,7 +3,7 @@ import websockets
 import json
 
 async def test_chat():
-    uri = "ws://localhost:8000/api/ws/ws/TestUser"
+    uri = "ws://localhost:18000/api/ws/ws/TestUser"
     
     async with websockets.connect(uri) as websocket:
         # 接收欢迎消息

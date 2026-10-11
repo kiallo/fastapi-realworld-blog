@@ -1,7 +1,11 @@
 from typing import Optional
 
+import redis.asyncio as redis      
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from starlette import status
+
+from app.core.cache import ArticleCache                       
+from app.core.dependencies import get_redis   
 
 from app.api.dependencies.articles import (
     check_article_modification_permissions,
@@ -55,9 +59,37 @@ async def list_articles(
     filters: ArticlesFilters = Depends(),
     user: Optional[User] = Depends(get_current_user_authorizer(required=False)),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
+    redis_client: redis.Redis = Depends(get_redis),         
 ) -> ArticlesListInResponse:
-    """文章列表 — 支持多维度过滤（tag/author/favorited）"""
-    articles = await articles_repo.filter_articles(
+    """
+    文章列表 — 支持多维度过滤（tag/author/favorited）
+
+    ⚠️ 缓存策略：**只对匿名请求（user is None）走缓存**。
+    原因是响应里的 favorited / author.following 是"相对当前用户"的，
+    把登录用户的响应缓存下来会串数据。
+    """
+    cache = ArticleCache(redis_client)
+    use_cache = user is None                                 
+
+    # ---------- ① 先试缓存 ----------
+    if use_cache:
+        cached = await cache.get_article_list(
+            skip=filters.offset,
+            limit=filters.limit,
+            tag=filters.tag,
+            author=filters.author,
+            favorited=filters.favorited,
+        )
+        # ⚠️ 注意用 is not None 而不是 if cached：
+        #    [] 是"命中了空值哨兵"，也属于命中，不能当成未命中
+        if cached is not None:
+            return ArticlesListInResponse(
+                articles=[ArticleForResponse(**item) for item in cached],
+                articlesCount=len(cached),
+            )
+
+    # ---------- ② 未命中（或登录用户）→ 查库 ----------
+    db_articles = await articles_repo.filter_articles(
         tag=filters.tag,
         author=filters.author,
         favorited=filters.favorited,
@@ -65,11 +97,23 @@ async def list_articles(
         offset=filters.offset,
         requested_user=user,
     )
+    articles = [_article_to_response(a) for a in db_articles]
+
+    # ---------- ③ 回写缓存（只限匿名） ----------
+    if use_cache:
+        await cache.set_article_list(
+            [a.model_dump() for a in articles],
+            skip=filters.offset,
+            limit=filters.limit,
+            tag=filters.tag,
+            author=filters.author,
+            favorited=filters.favorited,
+        )
+
     return ArticlesListInResponse(
-        articles=[_article_to_response(a) for a in articles],
+        articles=articles,
         articlesCount=len(articles),
     )
-
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ArticleInResponse, name="articles:create-article")
 async def create_article(

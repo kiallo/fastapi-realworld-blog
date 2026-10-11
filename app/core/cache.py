@@ -18,35 +18,75 @@ class ArticleCache:
     LIST_TTL = 300  # 列表缓存 5 分钟
     DETAIL_TTL = 600  # 详情缓存 10 分钟
 
+    # ★★ 新增：空值哨兵 —— 用来"缓存一个确定为空的结果"，防缓存穿透
+    #    用一个不合法 JSON 的字符串，读的时候先判断它，避免和真实数据撞车
+    NULL_SENTINEL = "__NULL__"
+    # ★★ 空值的 TTL 要短：它只是个"挡箭牌"，
+    #    万一这期间数据真的出现了，短 TTL 能加快自愈
+    NULL_TTL = 60
+
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
 
+    def _list_cache_key(
+        self,
+        skip: int,
+        limit: int,
+        tag: Optional[str] = None,
+        author: Optional[str] = None,
+        favorited: Optional[str] = None,
+    ) -> str:
+        """
+        构建文章列表缓存 key
+
+        ⚠️ 读和写必须用**同一个**构造函数，否则会出现
+        "写得进去、读不出来"的静默 bug（不报错，但命中率永远是 0）
+        """
+        key = f"{self.LIST_PREFIX}:{skip}:{limit}"
+        if tag:
+            key += f":tag:{tag}"
+        if author:
+            key += f":author:{author}"
+        if favorited:
+            key += f":favorited:{favorited}"
+        return key
 
     async def get_article_list(
-        self, 
-        skip: int = 0, 
+        self,
+        skip: int = 0,
         limit: int = 20,
         tag: Optional[str] = None,
-        author: Optional[str] = None
+        author: Optional[str] = None,
+        favorited: Optional[str] = None,
     ) -> Optional[list]:
-        """获取文章列表缓存"""
-        # 构建缓存 key
-        cache_key = f"{self.LIST_PREFIX}:{skip}:{limit}"
-        if tag:
-            cache_key += f":tag:{tag}"
-        if author:
-            cache_key += f":author:{author}"
+        """
+        获取文章列表缓存
+
+        返回值有三种含义，调用方必须分清：
+            None  → 缓存未命中，**请去查数据库**
+            []    → 命中了"空值哨兵"，说明数据库确定是空的，**不要再查库**
+            [...] → 命中了真实数据
+        """
+        cache_key = self._list_cache_key(skip, limit, tag, author, favorited)
 
         try:
             cached = await self.redis.get(cache_key)
-            if cached:
-                logger.info(f"✅ 缓存命中: {cache_key}")
-                return json.loads(cached)
-            
-            logger.info(f"❌ 缓存未命中: {cache_key}")
-            return None
+
+            if cached is None:
+                logger.info(f"❌ 缓存未命中: {cache_key}")
+                return None
+
+            if cached == self.NULL_SENTINEL:
+                # ★ 空值缓存命中：直接告诉调用方"结果就是空的"，不要去查库
+                logger.info(f"🕳️ 空值命中（防穿透）: {cache_key}")
+                return []
+
+            logger.info(f"✅ 缓存命中: {cache_key}")
+            return json.loads(cached)
+
         except Exception as e:
-            logger.error(f"获取缓存失败: {e}")
+            # ⚠️ 缓存出问题不能让业务挂掉 —— 降级成"未命中"，去查库
+            logger.error(f"获取缓存失败，降级为查库: {e}")
             return None
 
 
@@ -56,23 +96,31 @@ class ArticleCache:
         skip: int = 0,
         limit: int = 20,
         tag: Optional[str] = None,
-        author: Optional[str] = None
+        author: Optional[str] = None,
+        favorited: Optional[str] = None,
     ) -> bool:
-        """设置文章列表缓存"""
-        cache_key = f"{self.LIST_PREFIX}:{skip}:{limit}"
-        if tag:
-            cache_key += f":tag:{tag}"
-        if author:
-            cache_key += f":author:{author}"
+        """设置文章列表缓存（空结果写哨兵 + 短 TTL）"""
+        cache_key = self._list_cache_key(skip, limit, tag, author, favorited)
 
         try:
+            if not articles:
+                # ★★ 核心改动：空结果不写"空数组"，写哨兵 + 短 TTL
+                await self.redis.setex(
+                    cache_key,
+                    self.NULL_TTL,
+                    self.NULL_SENTINEL,
+                )
+                logger.info(f"🕳️ 空值缓存已设置: {cache_key} (TTL: {self.NULL_TTL}s)")
+                return True
+
             await self.redis.setex(
                 cache_key,
                 self.LIST_TTL,
-                json.dumps(articles, ensure_ascii=False, default=str)
+                json.dumps(articles, ensure_ascii=False, default=str),
             )
             logger.info(f"💾 缓存已设置: {cache_key} (TTL: {self.LIST_TTL}s)")
             return True
+
         except Exception as e:
             logger.error(f"设置缓存失败: {e}")
             return False

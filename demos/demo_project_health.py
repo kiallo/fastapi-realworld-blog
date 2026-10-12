@@ -60,7 +60,6 @@ def check_project_files():
         "app/core/middleware.py",
         "app/core/dependencies.py",
         "app/core/cache.py",
-        "app/core/redis_utils.py",
         "app/services/token_storage.py",
         "app/services/jwt.py",
         "app/api/routes/api.py",

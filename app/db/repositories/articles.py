@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence, Union
+from typing import Dict, List, Optional, Sequence, Set, Union
 
 from asyncpg import Connection
 from pypika import Query, Order
@@ -186,10 +186,10 @@ class ArticlesRepository(BaseRepository):
 
         rows = await self.connection.fetch(query.get_sql(), *query_params)
 
-        return [
-            await self._build_article_from_row(row, requested_user=requested_user)
-            for row in rows
-        ]
+        # ★ 批量构建：整页文章只用固定几条 SQL，不再是"每篇 3~5 条"
+        return await self._build_articles_from_rows(
+            rows, requested_user=requested_user,
+        )
 
     async def get_articles_for_user_feed(
         self, *, user: User, limit: int = 20, offset: int = 0,
@@ -201,10 +201,7 @@ class ArticlesRepository(BaseRepository):
             limit=limit,
             offset=offset,
         )
-        return [
-            await self._build_article_from_row(row, requested_user=user)
-            for row in rows
-        ]
+        return await self._build_articles_from_rows(rows, requested_user=user)
 
     async def get_tags_for_article_by_slug(self, *, slug: str) -> List[str]:
         """通过 slug 获取文章标签"""
@@ -242,25 +239,94 @@ class ArticlesRepository(BaseRepository):
     async def _build_article_from_row(
         self, row, requested_user: Optional[User] = None,
     ) -> Article:
-        """从数据库行构建完整的 Article 领域对象"""
-        slug = row["slug"]
-        author_username = row["author_username"]
+        """从数据库行构建完整的 Article 领域对象（单篇）
 
-        return Article(
-            id=row["id"],
-            slug=slug,
-            title=row["title"],
-            description=row["description"],
-            body=row["body"],
-            author=await self._profiles_repo.get_profile_by_username(
-                username=author_username,
-                requested_user=requested_user,
-            ),
-            tags=await self.get_tags_for_article_by_slug(slug=slug),
-            favorites_count=await self.get_favorites_count(slug=slug),
-            favorited=await self.is_article_favorited_by_user(
-                slug=slug, user=requested_user,
-            ) if requested_user else False,
-            created_at=row["created_at"],
-            updated_at=row["updated_at"],
+        ★ 内部走批量实现，只是把"一行"当成"一批只有一行" ——
+        这样单篇和列表共用同一段逻辑，不会出现"改了列表忘了改详情"的分叉。
+        """
+        articles = await self._build_articles_from_rows(
+            [row], requested_user=requested_user,
         )
+        return articles[0]
+
+    async def _build_articles_from_rows(
+        self, rows, requested_user: Optional[User] = None,
+    ) -> List[Article]:
+        """★ 批量构建 Article 领域对象 —— 消灭 N+1
+
+        改造前：每篇文章都要单独查 作者资料 / 标签 / 收藏数 /（登录时）是否收藏，
+                20 篇的列表页要发 61（匿名）~ 101（登录）条 SQL。
+
+        改造后：先把所有文章需要的 id/username 收集起来，每类数据只查一次：
+                1  条主查询（列表本身）
+              + 1  条查所有作者资料（登录时 +1 条查关注状态）
+              + 1  条查所有标签
+              + 1  条查所有收藏数
+              + 1  条查"我收藏了哪几篇"（仅登录）
+              = 4 条（匿名）/ 6 条（登录），**与返回多少篇文章无关**。
+        """
+        if not rows:
+            return []
+
+        # 去重：20 篇文章可能来自同几个作者，作者资料没必要重复查
+        slugs = list(dict.fromkeys(row["slug"] for row in rows))
+        author_usernames = list(
+            dict.fromkeys(row["author_username"] for row in rows)
+        )
+
+        tags_by_slug = await self._tags_repo.get_tags_for_articles(slugs=slugs)
+        favorites_counts = await self._get_favorites_counts(slugs=slugs)
+
+        favorited_slugs: Set[str] = set()
+        if requested_user:
+            favorited_slugs = await self._get_favorited_slugs(
+                slugs=slugs, user=requested_user,
+            )
+
+        profiles_by_username = await self._profiles_repo.get_profiles_by_usernames(
+            usernames=author_usernames, requested_user=requested_user,
+        )
+
+        articles: List[Article] = []
+        for row in rows:
+            author = profiles_by_username.get(row["author_username"])
+            if author is None:
+                # 外键保证不该发生，但真发生了要报得清楚，而不是 KeyError
+                raise EntityDoesNotExist(f"用户 {row['author_username']} 不存在")
+
+            articles.append(
+                Article(
+                    id=row["id"],
+                    slug=row["slug"],
+                    title=row["title"],
+                    description=row["description"],
+                    body=row["body"],
+                    author=author,
+                    tags=tags_by_slug.get(row["slug"], []),
+                    favorites_count=favorites_counts.get(row["slug"], 0),
+                    favorited=row["slug"] in favorited_slugs,
+                    created_at=row["created_at"],
+                    updated_at=row["updated_at"],
+                )
+            )
+        return articles
+
+    async def _get_favorites_counts(self, *, slugs: Sequence[str]) -> Dict[str, int]:
+        """★ 批量：一次查出多篇文章的收藏数，返回 {slug: count}"""
+        if not slugs:
+            return {}
+        rows = await queries.get_favorites_count_for_articles(  # type: ignore
+            self.connection, slugs=list(slugs),
+        )
+        return {row["slug"]: row["favorites_count"] for row in rows}
+
+    async def _get_favorited_slugs(
+        self, *, slugs: Sequence[str], user: User,
+    ) -> Set[str]:
+        """★ 批量：一次查出"该用户收藏了这批文章里的哪几篇" """
+        if not slugs:
+            return set()
+        rows = await queries.get_favorited_slugs_for_user(  # type: ignore
+            self.connection, username=user.username, slugs=list(slugs),
+        )
+        return {row["slug"] for row in rows}

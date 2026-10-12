@@ -1,3 +1,4 @@
+import hmac
 import json
 from datetime import datetime, timezone
 from typing import Optional
@@ -7,9 +8,9 @@ from loguru import logger
 
 class TokenStorage:
     """
-    Redis Token 存储管理器
+    Redis 会话存储管理器
 
-    采用白名单策略：Token 必须在 Redis 中才有效
+    采用白名单策略：JWT 里的 sid 必须在 Redis 中存在且一致，票据才算有效。
     """
 
     # Key 前缀
@@ -23,22 +24,26 @@ class TokenStorage:
     async def store_token(
         self,
         username: str,
-        token: str,
+        session_id: str,
         expire_seconds: int,
         device_info: str = "unknown"
     ) -> bool:
         """
-        存储用户 Token（白名单）
+        存储用户会话（白名单）
 
         参数：
             username: 用户名
-            token: JWT Token 字符串
-            expire_seconds: Token 过期时间（秒）
+            session_id: 会话 ID（sid）—— ⚠️ 存的是随机 sid，**不是 JWT 原文**
+            expire_seconds: 会话过期时间（秒）
             device_info: 设备信息
+
+        为什么存 sid 不存 token 原文：
+        ① Redis 泄漏时，攻击者拿到 sid 也换不出可用 token（token 还需要签名）
+        ② sid 比 JWT 短得多，省内存
         """
         session_key = f"{self.SESSION_PREFIX}{username}"
         session_data = {
-            "token": token,
+            "session_id": session_id,
             "login_time": datetime.now(timezone.utc).isoformat(),
             "device_info": device_info,
         }
@@ -54,18 +59,18 @@ class TokenStorage:
             # 添加到在线用户集合
             await self.redis.sadd(self.ONLINE_USERS_KEY, username)
 
-            logger.info(f"✅ Token 已存储: {username} (TTL: {expire_seconds}s)")
+            logger.info(f"✅ 会话已存储: {username} (TTL: {expire_seconds}s)")
             return True
         except Exception as e:
-            logger.error(f"❌ Token 存储失败: {e}")
+            logger.error(f"❌ 会话存储失败: {e}")
             return False
 
 
-    async def get_token(self, username: str) -> Optional[str]:
+    async def get_session_id(self, username: str) -> Optional[str]:
         """
-        获取用户的当前 Token
+        获取用户当前的会话 ID
 
-        返回 None 表示用户未登录或 Token 已过期
+        返回 None 表示用户未登录或会话已过期
         """
         session_key = f"{self.SESSION_PREFIX}{username}"
 
@@ -73,10 +78,10 @@ class TokenStorage:
             data = await self.redis.get(session_key)
             if data:
                 session = json.loads(data)
-                return session.get("token")
+                return session.get("session_id")
             return None
         except Exception as e:
-            logger.error(f"获取 Token 失败: {e}")
+            logger.error(f"获取会话 ID 失败: {e}")
             return None
 
 
@@ -98,21 +103,27 @@ class TokenStorage:
             return None
 
 
-    async def is_token_valid(self, username: str, token: str) -> bool:
+    async def is_session_valid(self, username: str, session_id: str) -> bool:
         """
-        验证 Token 是否有效
+        验证会话是否有效
 
-        白名单策略：Token 必须和 Redis 中存储的一致
+        白名单策略：JWT 里带的 sid 必须和 Redis 中存的一致。
+        登出 = 把 Redis 里的 key 删掉 → 同一个 JWT 立刻失效。
         """
-        stored_token = await self.get_token(username)
-        if stored_token is None:
+        if not session_id:
             return False
-        return stored_token == token
+
+        stored_session_id = await self.get_session_id(username)
+        if stored_session_id is None:
+            return False
+
+        # 用常量时间比较，避免"逐字符比较提前返回"泄漏出前几位正确的内容
+        return hmac.compare_digest(stored_session_id, session_id)
 
 
     async def revoke_token(self, username: str) -> bool:
         """
-        撤销用户 Token（登出）
+        撤销用户会话（登出）
 
         从 Redis 中删除会话记录
         """

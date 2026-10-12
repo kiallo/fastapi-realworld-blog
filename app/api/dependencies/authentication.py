@@ -5,7 +5,7 @@ from app.core.config import get_app_settings
 from app.api.dependencies.database import get_repository
 from app.core.dependencies import get_token_storage
 from app.db.repositories.users import UsersRepository
-from app.services.jwt import get_username_from_token
+from app.services.jwt import get_user_from_token
 from app.models.domain.users import UserInDB
 from app.services.token_storage import TokenStorage
 
@@ -41,7 +41,7 @@ def get_token_from_header(
     """
     if not api_key:
         return ""
-    
+
     token_prefix = f"{settings.jwt_token_prefix} "
     if not api_key.startswith(token_prefix):
         return ""
@@ -49,18 +49,27 @@ def get_token_from_header(
     return api_key[len(token_prefix):]
 
 
-# ===== 必选认证 =====
+# ===== ★ 唯一的认证实现 =====
 
-async def get_current_user(
-    token: str = Depends(get_token_from_header),
-    users_repo: UsersRepository = Depends(get_repository(UsersRepository)),
-    settings=Depends(get_app_settings),
-):
+async def _authenticate(
+    token: str,
+    users_repo: UsersRepository,
+    token_storage: TokenStorage,
+    settings,
+) -> UserInDB:
     """
-    必选认证依赖 — 未认证返回 403
+    认证的唯一实现 —— 必选和可选认证都走这里
 
-    依赖链：
-    get_token_from_header → get_username_from_token → get_user_by_username
+    流程（四步，面试要能背）：
+    1. Header 里有没有 Token
+    2. JWT 验签 + 验过期 → 拿到 username 和 sid
+    3. 拿 sid 查 Redis 白名单 → 登出/被踢的用户在这里被拦下
+    4. 查库拿完整用户对象
+
+    ⚠️ 设计要点：**失败一律抛 HTTPException**。
+    "未登录时抛异常还是返回 None"是调用方的选择，
+    不应该在认证逻辑里写成两套 —— 这就是改造前
+    可选认证漏掉白名单校验的根因。
     """
     if not token:
         raise HTTPException(
@@ -68,34 +77,44 @@ async def get_current_user(
             detail="需要认证",
         )
 
-    username = get_username_from_token(
+    # 解析 JWT：验签 + 验过期，同时取出会话 ID
+    jwt_user = get_user_from_token(
         token=token,
         secret_key=settings.secret_key.get_secret_value(),
     )
 
-    if username is None:
+    if jwt_user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 无效或已过期",
         )
 
+    # ★ Redis 白名单：可选认证也必须过这一关
+    is_valid = await token_storage.is_session_valid(
+        jwt_user.username, jwt_user.session_id,
+    )
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="会话已失效，请重新登录",
+        )
+
     try:
-        user = await users_repo.get_user_by_username(username=username)
-        return user
+        return await users_repo.get_user_by_username(username=jwt_user.username)
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在",
         )
 
-    
+
 def get_current_user_authorizer(
     *, required: bool = True
 ) -> Callable:
     """
     认证工厂函数
 
-    required=True  → 未认证返回 403
+    required=True  → 未认证抛 401
     required=False → 未认证返回 None（允许匿名访问）
 
     使用示例：
@@ -111,85 +130,27 @@ async def _get_current_user(
     token_storage: TokenStorage = Depends(get_token_storage),
     settings=Depends(get_app_settings),
 ) -> UserInDB:
-    """
-    必选认证 — 同时验证 JWT 和 Redis
-
-    流程：
-    1. 检查 Token 是否存在
-    2. 解析 JWT，获取用户名
-    3. 检查 Token 是否在 Redis 白名单中
-    4. 查询用户
-    """
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="需要认证",
-        )
-
-    # 解析 JWT
-    username = get_username_from_token(
-        token=token,
-        secret_key=settings.secret_key.get_secret_value(),
-    )
-
-    if username is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token 无效或已过期",
-        )
-
-    # 验证 Redis 白名单
-    is_valid = await token_storage.is_token_valid(username, token)
-    if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="会话已失效，请重新登录",
-        )
-
-    try:
-        return await users_repo.get_user_by_username(username=username)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户不存在",
-        )
+    """必选认证 — 未登录/票据失效一律 401"""
+    return await _authenticate(token, users_repo, token_storage, settings)
 
 
 async def _get_current_user_optional(
     token: str = Depends(get_token_from_header),
     users_repo: UsersRepository = Depends(get_repository(UsersRepository)),
+    token_storage: TokenStorage = Depends(get_token_storage),
     settings=Depends(get_app_settings),
 ) -> Optional[UserInDB]:
-    """可选认证 — 未认证返回 None"""
+    """
+    可选认证 — 未登录返回 None
+
+    与其他实现共用同一个 _authenticate，**区别只在失败时怎么办**：
+    这里把"失败"翻译成 None，而不是跳过校验。
+    所以登出后的旧 token 拿到这里也是匿名，不会出现
+    "登出了但列表接口还认得我"的不一致。
+    """
     if not token:
         return None
     try:
-        return await _resolve_user(token, users_repo, settings)
+        return await _authenticate(token, users_repo, token_storage, settings)
     except HTTPException:
         return None
-
-
-async def _resolve_user(
-    token: str,
-    users_repo: UsersRepository,
-    settings,
-) -> UserInDB:
-    """解析 Token → 查询用户"""
-    username = get_username_from_token(
-        token=token,
-        secret_key=settings.secret_key.get_secret_value(),
-    )
-
-    if username is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token 无效或已过期",
-        )
-
-    try:
-        return await users_repo.get_user_by_username(username=username)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户不存在",
-        )

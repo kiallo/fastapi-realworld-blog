@@ -41,3 +41,13 @@ FROM users u
         )
 WHERE u.username = :follower_username
 LIMIT 1;
+
+
+-- name: get_following_usernames_for_user
+-- ★ 批量版：一次性取回"这个用户关注了这批作者里的哪几个"（消 N+1）
+-- 只返回已关注的用户名，没关注的不会出现在结果里 —— 调用方用集合判断
+SELECT u.username
+FROM users u
+         INNER JOIN followers f ON f.following_id = u.id
+WHERE f.follower_id = (SELECT id FROM users WHERE username = :follower_username)
+  AND u.username = ANY(:usernames::text[]);

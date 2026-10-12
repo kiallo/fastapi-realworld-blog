@@ -52,17 +52,17 @@ async def test_get_article_by_slug(mock_conn, mock_article_row):
          patch("app.db.repositories.articles.ProfilesRepository") as MockProfilesRepo, \
          patch("app.db.repositories.articles.TagsRepository") as MockTagsRepo:
         mock_queries.get_article_by_slug = AsyncMock(return_value=mock_article_row)
-        mock_queries.get_tags_for_article_by_slug = AsyncMock(return_value=[
-            {"tag": "python"}, {"tag": "fastapi"}
-        ])
-        mock_queries.get_favorites_count_for_article = AsyncMock(
-            return_value={"favorites_count": 0}
+        # ★ 改造后走的是"批量"方法：一次查一批文章
+        mock_queries.get_favorites_count_for_articles = AsyncMock(
+            return_value=[{"slug": "test-article", "favorites_count": 0}]
         )
-        mock_queries.is_article_in_favorites = AsyncMock(
-            return_value={"favorited": False}
+        MockProfilesRepo.return_value.get_profiles_by_usernames = AsyncMock(
+            return_value={
+                "author": Profile(username="author", bio="", image=None, following=False)
+            }
         )
-        MockProfilesRepo.return_value.get_profile_by_username = AsyncMock(
-            return_value=Profile(username="author", bio="", image=None, following=False)
+        MockTagsRepo.return_value.get_tags_for_articles = AsyncMock(
+            return_value={"test-article": ["python", "fastapi"]}
         )
 
         repo = ArticlesRepository(mock_conn)
@@ -107,17 +107,23 @@ async def test_create_article(mock_conn, mock_article_row):
          patch("app.db.repositories.articles.ProfilesRepository") as MockProfilesRepo, \
          patch("app.db.repositories.articles.TagsRepository") as MockTagsRepo:
         mock_queries.create_article = AsyncMock(return_value=mock_article_row)
-        mock_queries.get_tags_for_article_by_slug = AsyncMock(return_value=[
-            {"tag": "python"}
-        ])
-        mock_queries.get_favorites_count_for_article = AsyncMock(
-            return_value={"favorites_count": 0}
+        # create_article 最后会重新查一遍这篇文章，这里也要 mock（原来漏了）
+        mock_queries.get_article_by_slug = AsyncMock(return_value=mock_article_row)
+        # ★ 改造后走的是"批量"方法：一次查一批文章
+        mock_queries.get_favorites_count_for_articles = AsyncMock(
+            return_value=[{"slug": "test-article", "favorites_count": 0}]
         )
-        mock_queries.is_article_in_favorites = AsyncMock(
-            return_value={"favorited": False}
+        # 创建时带的是登录用户，所以还会多查一次"我收藏了哪几篇"
+        mock_queries.get_favorited_slugs_for_user = AsyncMock(return_value=[])
+        MockProfilesRepo.return_value.get_profiles_by_usernames = AsyncMock(
+            return_value={
+                "author": ProfileModel(
+                    username="author", bio="", image=None, following=False
+                )
+            }
         )
-        MockProfilesRepo.return_value.get_profile_by_username = AsyncMock(
-            return_value=ProfileModel(username="author", bio="", image=None, following=False)
+        MockTagsRepo.return_value.get_tags_for_articles = AsyncMock(
+            return_value={"test-article": ["python"]}
         )
         MockTagsRepo.return_value.create_tags_that_dont_exist = AsyncMock()
         MockTagsRepo.return_value.link_article_with_tags = AsyncMock()
@@ -203,15 +209,19 @@ async def test_get_articles_for_user_feed(mock_conn, mock_article_row):
          patch("app.db.repositories.articles.ProfilesRepository") as MockProfilesRepo, \
          patch("app.db.repositories.articles.TagsRepository") as MockTagsRepo:
         mock_queries.get_articles_for_feed = AsyncMock(return_value=[mock_article_row])
-        mock_queries.get_tags_for_article_by_slug = AsyncMock(return_value=[])
-        mock_queries.get_favorites_count_for_article = AsyncMock(
-            return_value={"favorites_count": 0}
+        # ★ 改造后走的是"批量"方法：一次查一批文章
+        mock_queries.get_favorites_count_for_articles = AsyncMock(
+            return_value=[{"slug": "test-article", "favorites_count": 0}]
         )
-        mock_queries.is_article_in_favorites = AsyncMock(
-            return_value={"favorited": False}
+        # 登录用户会多查一次"我收藏了哪几篇"
+        mock_queries.get_favorited_slugs_for_user = AsyncMock(return_value=[])
+        MockProfilesRepo.return_value.get_profiles_by_usernames = AsyncMock(
+            return_value={
+                "author": Profile(username="author", bio="", image=None, following=False)
+            }
         )
-        MockProfilesRepo.return_value.get_profile_by_username = AsyncMock(
-            return_value=Profile(username="author", bio="", image=None, following=False)
+        MockTagsRepo.return_value.get_tags_for_articles = AsyncMock(
+            return_value={"test-article": []}
         )
 
         repo = ArticlesRepository(mock_conn)

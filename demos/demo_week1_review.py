@@ -112,30 +112,30 @@ async def test_article_cache(r: redis.Redis):
 async def test_session_management(r: redis.Redis):
     """测试3: 会话管理"""
     print("\n" + "=" * 60)
-    print("📌 测试3: 会话管理（Token 白名单）")
+    print("📌 测试3: 会话管理（sid 白名单）")
     print("=" * 60)
 
     from app.services.token_storage import TokenStorage
     ts = TokenStorage(r)
 
-    # 模拟登录
+    # 模拟登录：白名单里存的是会话 ID（sid），不是 JWT 原文
     username = "test_user"
-    token = "eyJhbGciOiJIUzI1NiJ9.test_token_xxx"
+    session_id = "test_session_id_xxx"
 
     await ts.store_token(
         username=username,
-        token=token,
+        session_id=session_id,
         expire_seconds=3600,
         device_info="Chrome/120.0"
     )
     print(f"  用户登录: {username}")
 
-    # 验证 Token
-    is_valid = await ts.is_token_valid(username, token)
-    print(f"  Token 验证（正确）: {is_valid}")
+    # 验证会话
+    is_valid = await ts.is_session_valid(username, session_id)
+    print(f"  会话验证（正确）: {is_valid}")
 
-    is_valid_wrong = await ts.is_token_valid(username, "wrong_token")
-    print(f"  Token 验证（错误）: {is_valid_wrong}")
+    is_valid_wrong = await ts.is_session_valid(username, "wrong_session_id")
+    print(f"  会话验证（错误）: {is_valid_wrong}")
 
     # 获取会话信息
     info = await ts.get_session_info(username)
@@ -149,7 +149,7 @@ async def test_session_management(r: redis.Redis):
 
     # 登出
     await ts.revoke_token(username)
-    is_valid_after = await ts.is_token_valid(username, token)
+    is_valid_after = await ts.is_session_valid(username, session_id)
     print(f"  登出后验证: {is_valid_after}")
 
     online_after = await ts.get_online_users()
@@ -167,15 +167,15 @@ async def test_multi_user_session(r: redis.Redis):
     from app.services.token_storage import TokenStorage
     ts = TokenStorage(r)
 
-    # 模拟多个用户登录
+    # 模拟多个用户登录（值都是各自的 sid）
     users = [
-        ("alice", "token_alice_123"),
-        ("bob", "token_bob_456"),
-        ("charlie", "token_charlie_789"),
+        ("alice", "sid_alice_123"),
+        ("bob", "sid_bob_456"),
+        ("charlie", "sid_charlie_789"),
     ]
 
-    for username, token in users:
-        await ts.store_token(username, token, 3600, "Demo/1.0")
+    for username, session_id in users:
+        await ts.store_token(username, session_id, 3600, "Demo/1.0")
 
     # 查看在线用户
     online = await ts.get_online_users()

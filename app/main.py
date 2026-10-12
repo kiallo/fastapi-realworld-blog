@@ -29,7 +29,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.pool = pool
         logger.info("数据库连接池已就绪")
     except Exception as e:
-        logger.warning(f"数据库连接失败，跳过: {e}")
+        # ★ 生产环境 fail fast：宁可启动失败让编排系统重启，
+        #   也不要带着一个坏掉的依赖假装健康（问题 ⑤）
+        if settings.db_fail_fast:
+            logger.error(f"数据库连接失败，启动中止: {e}")
+            raise
+        logger.warning(f"数据库连接失败，跳过（开发模式，仅 /health 会报 down）: {e}")
         app.state.pool = None
 
     yield  # 应用在此处运行，处理请求

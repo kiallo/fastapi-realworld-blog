@@ -70,3 +70,11 @@ WHERE email = :email;
 -- name: get_all_user_ids
 -- 获取所有用户 ID（测试用）
 SELECT id FROM users;
+
+
+-- name: get_users_by_usernames
+-- ★ 批量版：一次性取回多个用户的公开资料（消 N+1）
+-- 只取公开字段（不含 salt / hashed_password）—— 和 Profile 的字段对齐
+SELECT id, username, bio, image
+FROM users
+WHERE username = ANY(:usernames::text[]);

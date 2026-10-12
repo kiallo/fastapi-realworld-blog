@@ -12,7 +12,7 @@ from app.models.domain.users import UserInDB
 from app.services.authentication import (
     check_username_is_taken, check_email_is_taken,
 )
-from app.services.jwt import create_access_token_for_user
+from app.services.jwt import create_access_token_for_user, generate_session_id
 from app.services.token_storage import TokenStorage
 
 router = APIRouter(prefix="/users", tags=["authentication"])
@@ -76,17 +76,19 @@ async def register(
         password=user_create.password,
     )
 
-    # 签发 Token
+    # 签发 Token：先生成会话 ID，再把它写进 JWT 的 sid claim
+    session_id = generate_session_id()
     token = create_access_token_for_user(
         user_username=user.username,
         secret_key=settings.secret_key.get_secret_value(),
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+        session_id=session_id,
     )
 
-    # 存储到 Redis
+    # 会话写入 Redis 白名单（存的是 sid，不是 token 原文）
     await token_storage.store_token(
         username=user.username,
-        token=token,
+        session_id=session_id,
         expire_seconds=settings.access_token_expire_minutes * 60,
         device_info=_get_device_info(request),
     )
@@ -130,17 +132,19 @@ async def login(
             detail="邮箱或密码错误",
         )
 
-    # 签发 Token
+    # 签发 Token：每次都生成新 sid，写进 JWT
+    session_id = generate_session_id()
     token = create_access_token_for_user(
         user_username=user.username,
         secret_key=settings.secret_key.get_secret_value(),
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+        session_id=session_id,
     )
 
-    # 存储到 Redis（覆盖旧 Token，实现单设备登录）
+    # 存储到 Redis（覆盖旧会话 → 旧 token 立刻失效，实现单设备登录）
     await token_storage.store_token(
         username=user.username,
-        token=token,
+        session_id=session_id,
         expire_seconds=settings.access_token_expire_minutes * 60,
         device_info=_get_device_info(request),
     )

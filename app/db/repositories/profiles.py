@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Dict, Optional, Sequence, Set, Union
 
 from asyncpg import Connection
 
@@ -46,6 +46,45 @@ class ProfilesRepository(BaseRepository):
             image=row.get("image"),
             following=following,
         )
+
+    async def get_profiles_by_usernames(
+        self, *, usernames: Sequence[str],
+        requested_user: Optional[UserLike] = None,
+    ) -> Dict[str, Profile]:
+        """
+        ★ 批量获取多个用户的公开资料 —— 最多两条 SQL，替代 N 次单用户查询
+
+        1 条查所有用户的基础资料；
+        登录时再加 1 条，查出"关注了其中哪几个"。
+
+        返回 {username: Profile}；查不到的用户不会出现在结果里。
+        """
+        if not usernames:
+            return {}
+
+        username_list = list(dict.fromkeys(usernames))  # 去重，保持顺序
+        rows = await queries.get_users_by_usernames(  # type: ignore
+            self.connection, usernames=username_list,
+        )
+
+        following: Set[str] = set()
+        if requested_user:
+            following_rows = await queries.get_following_usernames_for_user(  # type: ignore
+                self.connection,
+                follower_username=requested_user.username,
+                usernames=username_list,
+            )
+            following = {row["username"] for row in following_rows}
+
+        return {
+            row["username"]: Profile(
+                username=row["username"],
+                bio=row.get("bio") or "",
+                image=row.get("image"),
+                following=row["username"] in following,
+            )
+            for row in rows
+        }
 
     async def add_user_into_followers(
         self, *, target_user: UserLike, requested_user: UserLike,

@@ -22,6 +22,12 @@ class AppSettings(BaseAppSettings):
     # ===== 数据库配置 =====
     database_url: PostgresDsn = "postgresql://postgres:postgres@localhost:5432/postgres" # type: ignore
 
+    # 启动时连不上数据库怎么办？
+    # False（开发）：打条警告照样启动 —— 数据库没开也能看 Swagger
+    # True （生产）：直接抛异常退出（fail fast）—— 宁可起不来，
+    #               也不要带着一个坏掉的依赖假装健康（见第 9 部分问题 ⑤）
+    db_fail_fast: bool = False
+
     # ===== Redis 配置 =====
     redis_host: str = "localhost"
     redis_port: int = 6379
@@ -70,6 +76,7 @@ class ProdAppSettings(AppSettings):
     title: str = "RealWorld Blog API"
     logging_level: int = logging.WARNING
     # 生产环境必须通过环境变量设置 secret_key 和 database_url！
+    db_fail_fast: bool = True  # 连不上数据库就别启动，交给编排系统重启
 
 
 class TestAppSettings(AppSettings):

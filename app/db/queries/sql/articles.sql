@@ -111,3 +111,33 @@ WHERE user_id = (SELECT id FROM users WHERE username = :username)
 -- name: get_all_tags
 -- 获取所有标签
 SELECT DISTINCT tag FROM tags ORDER BY tag;
+
+
+-- name: get_tags_for_articles_by_slugs
+-- ★ 批量版：一次性取回多篇文章的标签（消 N+1）
+SELECT a.slug, t.tag
+FROM articles a
+         INNER JOIN articles_to_tags att ON att.article_id = a.id
+         INNER JOIN tags t ON t.tag = att.tag
+WHERE a.slug = ANY(:slugs::text[]);
+
+
+-- name: get_favorites_count_for_articles
+-- ★ 批量版：一次性取回多篇文章的收藏数（消 N+1）
+-- ⚠️ 必须用 LEFT JOIN：没人收藏的文章也要出现在结果里（收藏数 0）
+SELECT a.slug, count(f.user_id)::int AS favorites_count
+FROM articles a
+         LEFT JOIN favorites f ON f.article_id = a.id
+WHERE a.slug = ANY(:slugs::text[])
+GROUP BY a.slug;
+
+
+-- name: get_favorited_slugs_for_user
+-- ★ 批量版：一次性取回"这个用户收藏了这批文章里的哪几篇"（消 N+1）
+-- 只返回收藏了的 slug，没收藏的不会出现在结果里 —— 调用方用集合判断
+SELECT a.slug
+FROM articles a
+         INNER JOIN favorites f ON f.article_id = a.id
+         INNER JOIN users u ON u.id = f.user_id
+WHERE u.username = :username
+  AND a.slug = ANY(:slugs::text[]);

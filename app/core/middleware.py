@@ -14,9 +14,13 @@ class TimingMiddleware(BaseHTTPMiddleware):
          ├─ await self.call_next(request)  ← 这里执行真正的业务逻辑
          └─ 拿到 response 后，可以做后处理
 
-    中间件栈：
-    Request → [CORS] → [Timing] → [Router] → [你的视图函数]
-    Response ← [CORS] ← [Timing] ← [Router] ← [你的视图函数]
+    ⚠️ 中间件栈的顺序是"反的"：
+    main.py 里的添加顺序是 CORS → Timing → Logging，
+    但 Starlette 的 add_middleware 是 insert(0)，**后加的在最外层**，
+    所以实际执行顺序是：
+
+    Request  → [Logging] → [Timing] → [CORS] → [Router] → [视图函数]
+    Response ← [Logging] ← [Timing] ← [CORS] ← [Router] ← [视图函数]
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -68,7 +72,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         logger.info(f"🟢 [{request_id}] {response.status_code} ({elapsed:.3f}s)")
 
         # 添加自定义响应头
+        # ⚠️ X-Process-Time 归 TimingMiddleware 管 —— 这里不要再写一次。
+        #    本中间件在最外层，响应回流是"内层先写、外层后写"，
+        #    再写一次会把 Timing 的值覆盖掉，造成"改了一个中间件、值却是另一个算的"。
         response.headers["X-Request-ID"] = request_id
-        response.headers["X-Process-Time"] = f"{elapsed:.3f}s"
 
         return response

@@ -4,6 +4,7 @@ from app.core.config import get_app_settings
 from app.api.dependencies.database import get_repository
 from app.api.dependencies.authentication import get_current_user_authorizer, get_token_from_header
 from app.core.dependencies import get_token_storage
+from app.db.errors import EntityDoesNotExist
 from app.db.repositories.users import UsersRepository
 from app.models.schemas.users import (
     UserInCreate, UserInLogin, UserInResponse, UserWithToken,
@@ -13,9 +14,17 @@ from app.services.authentication import (
     check_username_is_taken, check_email_is_taken,
 )
 from app.services.jwt import create_access_token_for_user, generate_session_id
+from app.services.security import generate_salt, get_password_hash, verify_password
 from app.services.token_storage import TokenStorage
 
 router = APIRouter(prefix="/users", tags=["authentication"])
+
+# ★ 用于"用户不存在"分支的等时占位（只算一次，在模块导入时）
+#   为什么需要它：如果"邮箱不存在"直接返回、而"密码错误"要跑一遍 bcrypt，
+#   攻击者测响应时间就能判断邮箱是否注册过 —— 统一错误文案挡不住这个。
+#   cost 和真实哈希一致（都用 generate_salt 的默认 rounds），所以耗时相当。
+_DUMMY_SALT = generate_salt()
+_DUMMY_HASH = get_password_hash(_DUMMY_SALT, "timing-equalization-dummy")
 
 
 def _create_user_response(user: UserInDB, token: str) -> UserInResponse:
@@ -119,7 +128,14 @@ async def login(
     # 查询用户
     try:
         user = await users_repo.get_user_by_email(email=user_login.email)
-    except Exception:
+    except EntityDoesNotExist:
+        # ★ 用户不存在时也跑一遍 bcrypt，让两条分支的耗时接近
+        #   （否则响应快 = 邮箱没注册过，等于把"防用户名枚举"白做了）
+        verify_password(
+            salt=_DUMMY_SALT,
+            password=user_login.password,
+            hashed_password=_DUMMY_HASH,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="邮箱或密码错误",

@@ -11,6 +11,7 @@ from app.api.dependencies.articles import (
     check_article_modification_permissions,
     get_article_by_slug_from_path,
     get_slug_for_article,
+    invalidate_articles_cache,
 )
 from app.api.dependencies.authentication import get_current_user_authorizer
 from app.api.dependencies.database import get_repository
@@ -120,6 +121,7 @@ async def create_article(
     article_create: ArticleInCreate = Body(..., embed=True, alias="article"),
     current_user: User = Depends(get_current_user_authorizer()),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
+    _=Depends(invalidate_articles_cache),   # ★ 成功后清文章缓存
 ) -> ArticleInResponse:
     """创建文章"""
     slug = get_slug_for_article(article_create.title)
@@ -174,6 +176,7 @@ async def update_article(
     article: Article = Depends(get_article_by_slug_from_path),
     _=Depends(check_article_modification_permissions),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
+    _cache=Depends(invalidate_articles_cache),   # ★ 成功后清文章缓存
 ) -> ArticleInResponse:
     """更新文章 — 只有作者可以修改"""
     updated = await articles_repo.update_article(
@@ -191,6 +194,7 @@ async def delete_article(
     article: Article = Depends(get_article_by_slug_from_path),
     _=Depends(check_article_modification_permissions),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
+    _cache=Depends(invalidate_articles_cache),   # ★ 成功后清文章缓存
 ) -> None:
     """删除文章 — 只有作者可以删除"""
     await articles_repo.delete_article(article=article)

@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
 from starlette import status
 
-from app.api.dependencies.articles import get_article_by_slug_from_path
+from app.api.dependencies.articles import (
+    get_article_by_slug_from_path,
+    invalidate_articles_cache,
+)
 from app.api.dependencies.authentication import get_current_user_authorizer
 from app.api.dependencies.database import get_repository
 from app.db.repositories.articles import ArticlesRepository
@@ -41,6 +44,7 @@ async def favorite_article(
     article: Article = Depends(get_article_by_slug_from_path),
     current_user: User = Depends(get_current_user_authorizer()),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
+    _cache=Depends(invalidate_articles_cache),   # ★ 收藏数变了，列表缓存要清
 ) -> ArticleInResponse:
     """收藏文章"""
     if article.favorited:
@@ -66,6 +70,7 @@ async def unfavorite_article(
     article: Article = Depends(get_article_by_slug_from_path),
     current_user: User = Depends(get_current_user_authorizer()),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
+    _cache=Depends(invalidate_articles_cache),   # ★ 收藏数变了，列表缓存要清
 ) -> ArticleInResponse:
     """取消收藏"""
     if not article.favorited:

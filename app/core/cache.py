@@ -10,7 +10,11 @@ class ArticleCache:
     """文章缓存管理器"""
 
     # 缓存 key 前缀
-    PREFIX = "article"
+    # ⚠️ PREFIX 必须和 LIST_PREFIX / DETAIL_PREFIX 同源（都是 "articles"）——
+    #    invalidate_all_articles 用 scan_iter(match=f"{PREFIX}:*") 扫的就是它。
+    #    曾经这里写的是 "article"（少个 s），导致 article:* 只匹配到
+    #    article:views:*，文章缓存一个都删不掉 —— 函数名和实际行为正好相反。
+    PREFIX = "articles"
     LIST_PREFIX = "articles:list"
     DETAIL_PREFIX = "articles:detail"
 
@@ -176,19 +180,26 @@ class ArticleCache:
             logger.error(f"缓存失效失败: {e}")
 
 
-    async def invalidate_all_articles(self):
-        """使所有文章缓存失效"""
+    async def invalidate_all_articles(self) -> int:
+        """使所有文章缓存失效（列表 + 详情）
+
+        返回实际删除的 key 数量。
+        注意：这个数字要打日志 —— 之前 prefix 写错时它一直是 0，
+        但日志写的是"已失效"，把 bug 藏了很久。
+        """
         try:
             keys = []
             async for key in self.redis.scan_iter(match=f"{self.PREFIX}:*"):
                 keys.append(key)
-            
+
             if keys:
                 await self.redis.delete(*keys)
-            
-            logger.info(f"🗑️ 所有文章缓存已失效")
+
+            logger.info(f"🗑️ 文章缓存已失效: {len(keys)} 个 key")
+            return len(keys)
         except Exception as e:
             logger.error(f"缓存失效失败: {e}")
+            return 0
 
 
     async def increment_view_count(self, article_id: int) -> int:

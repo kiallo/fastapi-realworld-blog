@@ -24,7 +24,12 @@ class RedisDependency:
                 decode_responses=True,
                 # 连接池配置
                 max_connections=20,
-                retry_on_timeout=True
+                retry_on_timeout=True,
+                # ★ 必须设超时：不设的话，Redis 如果是"网络黑洞"
+                #（不回包、也不拒绝），请求会一直挂在这里，
+                # 而不是快速失败成 401。认证路径上的依赖不能无限等。
+                socket_connect_timeout=2,
+                socket_timeout=2,
             )
         
         try:

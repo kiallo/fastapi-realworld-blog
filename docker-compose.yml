@@ -18,6 +18,22 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # 会话白名单是"允许丢"的数据 —— 丢了所有人重新登录一次而已，
+    # 所以关掉持久化，换来「重建容器不会残留脏会话」。
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # ⚠️ 故意不写 ports:
+    # 只有 app 需要访问它，容器之间走 compose 内部网络、用服务名 redis 就能通。
+    # 而且本机 6379 可能已经被别的 Redis（Docker 容器 / Memurai）占着，
+    # 映射出来会冲突。要调试就用 docker compose exec redis redis-cli
+
   app:
     build: .
     restart: unless-stopped
@@ -28,10 +44,21 @@ services:
       - "18000:18000"
     environment:
       APP_ENV: prod
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/realworld
+      # ⚠️ 密码必须引用 POSTGRES_PASSWORD，不能写死 "postgres"
+      #    这一行原来写死了 postgres:postgres，而 db 那边的密码是从
+      #    POSTGRES_PASSWORD 读的 —— 一旦你真的改了密码，应用就连不上库了，
+      #    而且报的是"认证失败"，很难想到是这里不一致。
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/realworld
+      # ⚠️ 必须显式指向服务名，不能靠默认值
+      # settings 里 redis_host 默认是 "localhost" —— 在容器里那是它自己，连不上。
+      # 连不上时 TokenStorage 会把异常吞掉，现象是「登录返回 200，但之后所有
+      # 需要认证的接口都 401」，非常难查。
+      REDIS_HOST: redis
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY 必须设置}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     command: >
       sh -c "alembic upgrade head &&

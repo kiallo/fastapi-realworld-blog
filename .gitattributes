@@ -1,0 +1,2 @@
+# TOML 文件保持 LF：Python 扩展内置的 TOML 解析器会把注释行尾的 CR 判为非法控制字符
+*.toml text eol=lf

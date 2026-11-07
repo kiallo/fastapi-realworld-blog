@@ -22,6 +22,11 @@ class ArticleCache:
     LIST_TTL = 300  # 列表缓存 5 分钟
     DETAIL_TTL = 600  # 详情缓存 10 分钟
 
+    # 摘要缓存：放在 articles: 前缀下，文章更新时会被
+    # invalidate_all_articles() 一起删掉
+    SUMMARY_PREFIX = "articles:summary"
+    SUMMARY_TTL = 3600  # 1 小时
+
     # ★★ 新增：空值哨兵 —— 用来"缓存一个确定为空的结果"，防缓存穿透
     #    用一个不合法 JSON 的字符串，读的时候先判断它，避免和真实数据撞车
     NULL_SENTINEL = "__NULL__"
@@ -129,6 +134,33 @@ class ArticleCache:
             logger.error(f"设置缓存失败: {e}")
             return False
 
+    async def get_article_summary(self, article_id: int) -> Optional[dict]:
+        """获取文章摘要缓存；不存在/解析失败返回 None"""
+        cache_key = f"{self.SUMMARY_PREFIX}:{article_id}"
+        try:
+            cached = await self.redis.get(cache_key)
+            if cached is None:
+                return None
+            return json.loads(cached)
+        except Exception as e:
+            # 缓存坏了不能拖垮接口：降级为重新生成
+            logger.error(f"获取摘要缓存失败，降级为重新生成: {e}")
+            return None
+
+    async def set_article_summary(self, article_id: int, data: dict) -> bool:
+        """写入文章摘要缓存"""
+        cache_key = f"{self.SUMMARY_PREFIX}:{article_id}"
+        try:
+            await self.redis.setex(
+                cache_key,
+                self.SUMMARY_TTL,
+                json.dumps(data, ensure_ascii=False),
+            )
+            logger.info(f"💾 摘要缓存已设置: {cache_key} (TTL: {self.SUMMARY_TTL}s)")
+            return True
+        except Exception as e:
+            logger.error(f"设置摘要缓存失败: {e}")
+            return False
 
     async def get_article_detail(self, article_id: int) -> Optional[dict]:
         """获取文章详情缓存"""

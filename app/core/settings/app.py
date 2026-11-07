@@ -39,6 +39,14 @@ class AppSettings(BaseAppSettings):
     jwt_token_prefix: str = "Token"
     access_token_expire_minutes: int = 60 * 24 * 7  # 一周
 
+    # ===== LLM 配置 =====
+    # 没有配 key 时，摘要接口返回 503，不影响其他接口启动
+    llm_api_key: Optional[SecretStr] = None
+    llm_base_url: str = "https://api.deepseek.com"
+    llm_model: str = "deepseek-flash"
+    llm_timeout_seconds: float = 20.0
+    llm_max_input_chars: int = 6000
+
     # ===== 日志配置 =====
     logging_level: int = logging.INFO
     loggers: tuple[str, ...] = ("uvicorn", "uvicorn.error", "uvicorn.access")

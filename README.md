@@ -38,13 +38,17 @@
 | `poetry.lock` | Poetry 锁定具体依赖版本的锁文件 |
 | `alembic.ini` | **Alembic 数据库迁移**配置，指向迁移脚本目录 `./app/db/migrations` |
 | `Dockerfile` | 基于 `python:3.12-slim` 构建应用镜像：装 curl、装 Poetry、`poetry install --without dev`，暴露 18000 |
-| `docker-compose.yml` | 编排两个服务：`db`（PostgreSQL 16-alpine，只绑定回环 `127.0.0.1:5432`，带 healthcheck）+ `app`（映射 `18000:18000`，`restart: unless-stopped`，启动前先跑 `alembic upgrade head` 再拉起 uvicorn） |
-| `.env.example` | 开发环境变量模板（`APP_ENV`、`DATABASE_URL`、`SECRET_KEY`），复制成 `.env` 使用 |
+| `docker-compose.yml` | 编排三个服务：`db`（PostgreSQL 16-alpine，只绑定回环 `127.0.0.1:5432`，带 healthcheck）+ `redis`（redis:7-alpine，容器间用服务名访问）+ `app`（映射 `18000:18000`，`restart: unless-stopped`，启动前先跑 `alembic upgrade head` 再拉起 uvicorn） |
+| `.env.example` | 开发环境变量模板（`APP_ENV`、`DATABASE_URL`、`SECRET_KEY`、`REDIS_HOST`、`LLM_*`），复制成 `.env` 使用 |
 | `.env.production.example` | 生产环境变量模板（`POSTGRES_PASSWORD`、`SECRET_KEY`），复制成 `.env.production`；该文件已被 `.gitignore` 忽略，不会进版本库 |
 | `.dockerignore` | Docker 构建忽略规则 |
 | `.gitignore` | Git 忽略规则 |
 
-> 说明：`docker-compose.yml` 里没有 Redis 服务，但代码的缓存与会话管理都依赖 Redis，本地跑通需要自己先启动一个 Redis（默认连 `localhost:6379`）。
+> 说明：compose 里包含 `redis` 服务，容器之间用服务名 `redis` 访问；
+> 本地 Poetry 后端通过 `docker-compose.override.yml` 把 Redis 映射到 `127.0.0.1:6379`。
+> `.env` 里必须写 `REDIS_HOST=127.0.0.1`，**不要用 `localhost`**：
+> Windows 会优先把它解析成 `::1`，连接会挂到超时，表现为“登录返回 200，
+> 但之后所有需要认证的接口都提示会话已失效”。也不要再启动独立的 Redis 容器抢 6379。
 
 ---
 
@@ -82,6 +86,7 @@
   - `articles/` —— 文章（单独一个包，因为接口最多）：
     - `articles_resource.py` —— 具体接口（列表接口接了 Redis 缓存）
     - `articles_common.py` —— 公共依赖
+    - `articles_summary.py` —— AI 摘要接口（`POST /api/articles/{slug}/summary`，仅作者可触发）
   - `hello.py` —— 系统与教学端点：`/`、`/ping`、`/health`（检查数据库等依赖状态）、`/slow`（测耗时中间件）、`/db-test`、`/repo-test`、`/me`、`/required-auth`、`/optional-auth`
   - `items.py` —— Pydantic 教学示例（参数校验、路径/查询参数）
   - `demo/` —— **学习演示接口**，不影响正式接口：
@@ -110,7 +115,7 @@
   - `app.py` —— `AppSettings` 通用配置（FastAPI 参数、数据库、Redis、JWT、日志）+ `DevAppSettings` / `ProdAppSettings` / `TestAppSettings` 三个环境子类
 - `middleware.py` —— 自定义中间件：`TimingMiddleware`（请求耗时统计、慢请求告警）、`LoggingMiddleware`（请求日志）
 - `dependencies.py` —— Redis 相关依赖注入：`RedisDependency`（连接池管理）、`get_redis`、`get_token_storage`
-- `cache.py` —— **文章缓存管理器** `ArticleCache`：列表/详情分开建 key 与 TTL，并用「空值哨兵」缓存确定为空的结果，防缓存穿透
+- `cache.py` —— **文章缓存管理器** `ArticleCache`：列表/详情分开建 key 与 TTL，并用「空值哨兵」缓存确定为空的结果，防缓存穿透；另含 AI 摘要缓存 `articles:summary:<id>`（TTL 1 小时，随文章缓存一起失效）
 - `cache_decorator.py` —— 通用的 `@cached` 缓存装饰器
 - `logging.py` —— loguru 日志配置
 
@@ -142,6 +147,7 @@
   - `rwschema.py` —— 基类，开启 `orm_mode`，用于把领域模型转成响应
   - `jwt.py` —— JWT 载荷模型（含会话 ID `sid`）
   - `users.py`、`articles.py`、`comments.py`、`profiles.py`
+  - `summaries.py` —— AI 摘要：LLM 输出的校验模型 `ArticleSummaryContent` + 接口响应 `ArticleSummaryInResponse`
   - 文件名中 `In` 表示入参、`ForResponse`/`InResponse` 表示出参
 
 - `common.py` —— 通用 mixin（id、时间戳）
@@ -154,6 +160,7 @@
 - `jwt.py` —— 生成/解析 JWT（载荷里带 `sid` 会话标识）
 - `security.py` —— 密码哈希（bcrypt）
 - `token_storage.py` —— **Redis 会话存储**：白名单策略（JWT 里的 `sid` 必须在 Redis 中存在且一致才算有效）、Token 黑名单、在线用户集合
+- `summary.py` —— 摘要生成：`AsyncOpenAI` 调用、总超时（`asyncio.wait_for`）、限流/5xx 重试一次、schema 校验与修复重试
 - `authentication.py`、`comments.py` —— 其他业务逻辑
 
 ### `app/resources/` —— 资源字符串
@@ -189,6 +196,35 @@
 
 ---
 
+## 五、AI 摘要接口
+
+`POST /api/articles/{slug}/summary` —— 为文章生成 AI 摘要，仅文章作者可触发。
+
+| 项 | 说明 |
+|----|------|
+| 鉴权 | `Authorization: Token <jwt>`；不带 token 返回 401，非作者返回 403 |
+| 响应 | `{ "summary": { "summary", "keywords", "difficulty" }, "model", "cached" }` |
+| 缓存 | Redis `articles:summary:<article_id>`，TTL 3600 秒；命中时 `cached: true` |
+| 并发 | `SET NX EX 60` 锁；拿不到锁返回 409，避免重复调用 LLM |
+| 超时 | 总 deadline 由 `LLM_TIMEOUT_SECONDS` 控制（默认 20 秒）；超时返回 504 |
+| 失败 | LLM 未配置 / 连接失败 / 限流 / 结构校验失败返回 503 |
+| 失效 | 文章更新或删除时，`invalidate_all_articles()` 删除 `articles:*`，摘要缓存一并失效 |
+
+配置项（`.env`，模板见 `.env.example`）：
+
+- `LLM_API_KEY`：LLM 的 key；不配时接口返回 503，其他接口不受影响
+- `LLM_BASE_URL`：默认 `https://api.deepseek.com`
+- `LLM_MODEL`：默认 `deepseek-flash`
+- `LLM_TIMEOUT_SECONDS`：默认 20
+- `LLM_MAX_INPUT_CHARS`：默认 6000，正文超过会被截断
+
+成本与评测（2026-XX 实测，10 条自建用例）：
+
+- 单篇平均输入 X token、输出 Y token，按空闲价约 ¥Z/篇；
+- 首次延迟 p50 X ms / p95 Y ms；缓存命中 p50 Z ms；
+- 成功率 10/10，人工评分 D/20；
+- 局限：样本只有 10 条、单人标注、单模型，数字只说明方向，不是 benchmark。
+
 ## 总结
 
 这个项目的最大特点是**清晰的分层 + 逐步补上的工程化能力**：
@@ -201,7 +237,7 @@
 - 领域模型与出入参模型分离
 - 配置按环境拆分（dev / prod / test）
 - 生命周期用 `lifespan`，生产环境数据库连不上就 fail fast
-- Redis 承担两件事：文章列表/详情缓存 + 会话白名单/黑名单
+- Redis 承担三件事：文章列表/详情缓存 + 会话白名单/黑名单 + AI 摘要缓存
 - 日志用 loguru 统一接管，中间件负责耗时统计
 
 它是学习 FastAPI 工程化架构的典型范例。

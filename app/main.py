@@ -7,6 +7,7 @@ from loguru import logger
 from app.api.routes.api import router as api_router
 from app.core.config import get_app_settings
 from app.core.middleware import TimingMiddleware, LoggingMiddleware
+from app.services.summary import build_summary_service
 
 
 @asynccontextmanager
@@ -37,7 +38,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(f"数据库连接失败，跳过（开发模式，仅 /health 会报 down）: {e}")
         app.state.pool = None
 
+    summary_service = build_summary_service(settings)
+    app.state.summary_service = summary_service
+
     yield  # 应用在此处运行，处理请求
+
+    if summary_service is not None:
+        await summary_service.aclose()
 
     # --- 关闭 ---
     logger.info("正在关闭数据库连接...")

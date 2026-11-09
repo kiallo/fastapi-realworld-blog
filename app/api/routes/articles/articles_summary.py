@@ -30,6 +30,35 @@ def _to_response(payload: dict, *, cached: bool) -> ArticleSummaryInResponse:
     )
 
 
+@router.get(
+    "/{slug}/summary",
+    response_model=ArticleSummaryInResponse,
+    name="articles:get-summary",
+)
+async def get_article_summary(
+    article: Article = Depends(get_article_by_slug_from_path),
+    redis_client: redis.Redis = Depends(get_redis),
+) -> ArticleSummaryInResponse:
+    """
+    读取文章已有的 AI 摘要（公开接口，任何人可看）
+
+    - 命中缓存：返回摘要，cached=true
+    - 没有缓存：404（表示"这篇文章还没生成过摘要"）
+
+    ★ 这里**故意不校验当前用户**：看摘要不该有身份门槛。
+      需要保护的是"生成"这个动作（要花钱、要调模型），那条留在下面的 POST 里。
+      两个接口共用同一个缓存 key，所以谁先看都一样。
+    """
+    cache = ArticleCache(redis_client)
+    cached = await cache.get_article_summary(article.id)
+    if cached is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="这篇文章还没有生成摘要",
+        )
+    return _to_response(cached, cached=True)
+
+
 @router.post(
     "/{slug}/summary",
     response_model=ArticleSummaryInResponse,

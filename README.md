@@ -86,7 +86,7 @@
   - `articles/` —— 文章（单独一个包，因为接口最多）：
     - `articles_resource.py` —— 具体接口（列表接口接了 Redis 缓存）
     - `articles_common.py` —— 公共依赖
-    - `articles_summary.py` —— AI 摘要接口（`POST /api/articles/{slug}/summary`，仅作者可触发）
+    - `articles_summary.py` —— AI 摘要接口（`GET` 公开读取 / `POST` 仅作者生成，路径同为 `/api/articles/{slug}/summary`）
   - `hello.py` —— 系统与教学端点：`/`、`/ping`、`/health`（检查数据库等依赖状态）、`/slow`（测耗时中间件）、`/db-test`、`/repo-test`、`/me`、`/required-auth`、`/optional-auth`
   - `items.py` —— Pydantic 教学示例（参数校验、路径/查询参数）
   - `demo/` —— **学习演示接口**，不影响正式接口：
@@ -198,7 +198,18 @@
 
 ## 五、AI 摘要接口
 
-`POST /api/articles/{slug}/summary` —— 为文章生成 AI 摘要，仅文章作者可触发。
+摘要拆成「读」和「写」两条路径，权限不同：
+
+| 接口 | 方法 | 谁能调 | 语义 |
+|------|------|--------|------|
+| `/api/articles/{slug}/summary` | `GET` | **所有人（含未登录访客）** | 读取已有摘要；没有则 404 |
+| `/api/articles/{slug}/summary` | `POST` | **仅文章作者** | 生成摘要；会调 LLM、会产生费用 |
+
+> 为什么拆开：**看摘要不该有身份门槛，需要保护的是「生成」这个动作**。
+> 两个接口共用同一个缓存 key（`articles:summary:<id>`），所以谁读到的一定是同一份。
+> `GET` 不写缓存、不调模型，只是一次 Redis 读取。
+
+`POST` 的细节：
 
 | 项 | 说明 |
 |----|------|

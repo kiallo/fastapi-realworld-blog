@@ -11,3 +11,6 @@ postgres-data/
 Thumbs.db
 *.log
 .env.production
+.coverage
+htmlcov/
+.pytest_cache/

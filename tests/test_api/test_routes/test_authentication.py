@@ -1,21 +1,33 @@
+import uuid
+
 import pytest
 from httpx import AsyncClient
 
-TEST_USER = {
-    "username": "testuser",
-    "email": "testuser@test.com",
-    "password": "testpassword123",
-}
+
+def _unique_user_payload():
+    """生成唯一用户名。
+
+    这个测试连的是真实 PostgreSQL（APP_ENV 默认 dev），
+    写死 testuser 的话第二次跑就会因为「用户已存在」返回 400。
+    """
+    suffix = uuid.uuid4().hex[:8]
+    return {
+        "username": f"testuser_{suffix}",
+        "email": f"testuser_{suffix}@test.com",
+        "password": "testpassword123",
+    }
 
 
 @pytest.mark.asyncio
 async def test_register_success(client: AsyncClient):
     """测试注册成功"""
-    response = await client.post("/users", json=TEST_USER)
+    payload = _unique_user_payload()
+    response = await client.post("/users", json=payload)
+
     assert response.status_code == 201
     data = response.json()
-    assert data["user"]["username"] == TEST_USER["username"]
-    assert data["user"]["email"] == TEST_USER["email"]
+    assert data["user"]["username"] == payload["username"]
+    assert data["user"]["email"] == payload["email"]
     assert "token" in data["user"]
 
 

@@ -31,18 +31,18 @@
 
 ## 一、项目根目录文件
 
-| 文件 | 作用 |
-|------|------|
-| `pyproject.toml` | **Poetry** 依赖管理文件。运行时依赖：fastapi、uvicorn、pydantic-settings、loguru；数据库：asyncpg、psycopg2-binary、aiosql、pypika、alembic；缓存：redis；安全：passlib、pyjwt；生产：gunicorn、uvicorn-worker。开发依赖：pytest、pytest-asyncio、pytest-cov、httpx、asgi-lifespan、black、isort、mypy、autoflake。另含 black / isort / mypy 配置 |
-| `setup.cfg` | **pytest 配置**：`testpaths = tests`、`asyncio_mode = auto`、`addopts = -v --tb=short` |
-| `poetry.lock` | Poetry 锁定具体依赖版本的锁文件 |
-| `alembic.ini` | **Alembic 数据库迁移**配置，指向迁移脚本目录 `./app/db/migrations` |
-| `Dockerfile` | 基于 `python:3.12-slim` 构建应用镜像：装 curl、装 Poetry、`poetry install --without dev`，暴露 18000 |
-| `docker-compose.yml` | 编排三个服务：`db`（PostgreSQL 16-alpine，只绑定回环 `127.0.0.1:5432`，带 healthcheck）+ `redis`（redis:7-alpine，容器间用服务名访问）+ `app`（映射 `18000:18000`，`restart: unless-stopped`，启动前先跑 `alembic upgrade head` 再拉起 uvicorn） |
-| `.env.example` | 开发环境变量模板（`APP_ENV`、`DATABASE_URL`、`SECRET_KEY`、`REDIS_HOST`、`LLM_*`），复制成 `.env` 使用 |
-| `.env.production.example` | 生产环境变量模板（`POSTGRES_PASSWORD`、`SECRET_KEY`），复制成 `.env.production`；该文件已被 `.gitignore` 忽略，不会进版本库 |
-| `.dockerignore` | Docker 构建忽略规则 |
-| `.gitignore` | Git 忽略规则 |
+| 文件                      | 作用                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pyproject.toml`          | **Poetry** 依赖管理文件。运行时依赖：fastapi、uvicorn、pydantic-settings、loguru；数据库：asyncpg、psycopg2-binary、aiosql、pypika、alembic；缓存：redis；安全：passlib、pyjwt；生产：gunicorn、uvicorn-worker。开发依赖：pytest、pytest-asyncio、pytest-cov、httpx、asgi-lifespan、black、isort、mypy、autoflake。另含 black / isort / mypy 配置 |
+| `setup.cfg`               | **pytest 配置**：`testpaths = tests`、`asyncio_mode = auto`、`addopts = -v --tb=short`                                                                                                                                                                                                                                                            |
+| `poetry.lock`             | Poetry 锁定具体依赖版本的锁文件                                                                                                                                                                                                                                                                                                                   |
+| `alembic.ini`             | **Alembic 数据库迁移**配置，指向迁移脚本目录 `./app/db/migrations`                                                                                                                                                                                                                                                                                |
+| `Dockerfile`              | 基于 `python:3.12-slim` 构建应用镜像：装 curl、装 Poetry、`poetry install --without dev`，暴露 18000                                                                                                                                                                                                                                              |
+| `docker-compose.yml`      | 编排三个服务：`db`（PostgreSQL 16-alpine，只绑定回环 `127.0.0.1:5432`，带 healthcheck）+ `redis`（redis:7-alpine，容器间用服务名访问）+ `app`（映射 `18000:18000`，`restart: unless-stopped`，启动前先跑 `alembic upgrade head` 再拉起 uvicorn）                                                                                                  |
+| `.env.example`            | 开发环境变量模板（`APP_ENV`、`DATABASE_URL`、`SECRET_KEY`、`REDIS_HOST`、`LLM_*`），复制成 `.env` 使用                                                                                                                                                                                                                                            |
+| `.env.production.example` | 生产环境变量模板（`POSTGRES_PASSWORD`、`SECRET_KEY`），复制成 `.env.production`；该文件已被 `.gitignore` 忽略，不会进版本库                                                                                                                                                                                                                       |
+| `.dockerignore`           | Docker 构建忽略规则                                                                                                                                                                                                                                                                                                                               |
+| `.gitignore`              | Git 忽略规则                                                                                                                                                                                                                                                                                                                                      |
 
 > 说明：compose 里包含 `redis` 服务，容器之间用服务名 `redis` 访问；
 > 本地 Poetry 后端通过 `docker-compose.override.yml` 把 Redis 映射到 `127.0.0.1:6379`。
@@ -171,28 +171,53 @@
 
 ## 三、`tests/` —— 测试
 
-与源码一一对应的单元/集成测试：
+**101 个用例，`app/` 覆盖率 73%**。按职责分四层：
 
-| 目录/文件 | 作用 |
-|-----------|------|
-| `conftest.py` | 测试夹具（fixture），含 asgi-lifespan 管理应用生命周期 |
-| `fake_asyncpg_pool.py` | 假的数据库连接池，供测试免真实数据库 |
-| `test_api/test_routes/` | 各路由的接口测试（`test_articles`、`test_authentication`、`test_comments`、`test_hello`、`test_profiles`、`test_tags`） |
-| `test_schemas/test_rw_model.py` | 模型测试 |
-| `test_services/test_jwt.py` | 服务层测试 |
+| 目录/文件 | 用例 | 测什么 |
+|---|---|---|
+| `conftest.py` | — | 测试夹具：`client` 走 ASGI 内存传输 + lifespan 管理 |
+| `fake_asyncpg_pool.py` | — | 假连接池，供 SQL 层测试免真实数据库 |
+| `test_api/test_routes/` | 16 | 真正的 HTTP 接口：`test_hello`(4)、`test_authentication`(4)、`test_summary`(8) |
+| `test_db/repositories/` | 22 | SQL 层：`test_articles`(7)、`test_tags`(5)、`test_profiles`(5)、`test_comments`(5) |
+| `test_core/test_cache.py` | 12 | 缓存 key 命名、TTL、空值哨兵（防穿透） |
+| `test_services/` | 45 | `test_summary`(14)、`test_token_storage`(19)、`test_jwt`(7)、`test_security`(5) |
+| `test_schemas/test_rw_model.py` | 6 | camelCase 别名与 datetime 序列化 |
 
-> 运行：`pytest`（或 `bash scripts/test`），配置见 `setup.cfg`。
+**分层原则**——每层的"可信度"不同，别混为一谈：
+
+- `test_db/` 用 `MagicMock` 假连接，验证的是「翻译成哪个 SQL 调用」，**不证明 SQL 本身写对了**
+- `test_api/` 走 `client` fixture，真实连 `localhost:5432`（`APP_ENV` 默认 dev），写操作会落真库
+- `test_core/` 与 `test_services/` 是纯单元测试，用 `fakeredis`，可离线跑，3 秒内出结果
+
+**运行**：
+
+```bash
+# 全量（约 40 秒；慢在每次 lifespan 都要连 PostgreSQL）
+.\.venv\Scripts\python.exe -m pytest -q
+
+# 只跑纯单元测试（不连库，3 秒）
+.\.venv\Scripts\python.exe -m pytest tests/test_core tests/test_services -q
+
+# 覆盖率（含未覆盖行号）
+.\.venv\Scripts\python.exe -m pytest --cov=app --cov-report=term-missing -q
+
+# 单条调试
+.\.venv\Scripts\python.exe -m pytest tests/test_api/test_routes/test_summary.py::test_post_returns_409_when_lock_held -q
+```
+
+**已知短板**：`app/core/cache.py` 68%（`view_count`、`invalidate_article` 未测）、
+`app/services/articles.py` 53%。`token_storage.py` 已从 29% 补到 81%。
 
 ---
 
 ## 四、其他目录
 
-| 目录 | 作用 |
-|------|------|
-| `demos/` | 学习与演练脚本：`demo_week1_review.py`（第一周综合复习）、`demo_session.py`（Redis 会话演示）、`demo_bench_articles.py`（文章列表并发压测）、`demo_project_health.py`（组件健康检查）、`test_redis.py`、`test_websocket.py` |
-| `scripts/` | 便捷命令脚本：`test`（跑 pytest）、`format`（格式化）、`run_dev.bat`（Windows 下带 `--reload` 启动开发服务器） |
-| `.github/` | GitHub Actions：`workflows/lint.yml`（代码风格检查）、`workflows/tests.yml`（测试） |
-| `.vscode/` | 编辑器配置（调试/解释器设置） |
+| 目录       | 作用                                                                                                                                                                                                                        |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `demos/`   | 学习与演练脚本：`demo_week1_review.py`（第一周综合复习）、`demo_session.py`（Redis 会话演示）、`demo_bench_articles.py`（文章列表并发压测）、`demo_project_health.py`（组件健康检查）、`test_redis.py`、`test_websocket.py` |
+| `scripts/` | 便捷命令脚本：`test`（跑 pytest）、`format`（格式化）、`run_dev.bat`（Windows 下带 `--reload` 启动开发服务器）                                                                                                              |
+| `.github/` | GitHub Actions：`workflows/lint.yml`（代码风格检查）、`workflows/tests.yml`（测试）                                                                                                                                         |
+| `.vscode/` | 编辑器配置（调试/解释器设置）                                                                                                                                                                                               |
 
 ---
 
@@ -200,10 +225,10 @@
 
 摘要拆成「读」和「写」两条路径，权限不同：
 
-| 接口 | 方法 | 谁能调 | 语义 |
-|------|------|--------|------|
-| `/api/articles/{slug}/summary` | `GET` | **所有人（含未登录访客）** | 读取已有摘要；没有则 404 |
-| `/api/articles/{slug}/summary` | `POST` | **仅文章作者** | 生成摘要；会调 LLM、会产生费用 |
+| 接口                           | 方法   | 谁能调                     | 语义                           |
+| ------------------------------ | ------ | -------------------------- | ------------------------------ |
+| `/api/articles/{slug}/summary` | `GET`  | **所有人（含未登录访客）** | 读取已有摘要；没有则 404       |
+| `/api/articles/{slug}/summary` | `POST` | **仅文章作者**             | 生成摘要；会调 LLM、会产生费用 |
 
 > 为什么拆开：**看摘要不该有身份门槛，需要保护的是「生成」这个动作**。
 > 两个接口共用同一个缓存 key（`articles:summary:<id>`），所以谁读到的一定是同一份。
@@ -211,14 +236,14 @@
 
 `POST` 的细节：
 
-| 项 | 说明 |
-|----|------|
-| 鉴权 | `Authorization: Token <jwt>`；不带 token 返回 401，非作者返回 403 |
-| 响应 | `{ "summary": { "summary", "keywords", "difficulty" }, "model", "cached" }` |
-| 缓存 | Redis `articles:summary:<article_id>`，TTL 3600 秒；命中时 `cached: true` |
-| 并发 | `SET NX EX 60` 锁；拿不到锁返回 409，避免重复调用 LLM |
-| 超时 | 总 deadline 由 `LLM_TIMEOUT_SECONDS` 控制（默认 20 秒）；超时返回 504 |
-| 失败 | LLM 未配置 / 连接失败 / 限流 / 结构校验失败返回 503 |
+| 项   | 说明                                                                              |
+| ---- | --------------------------------------------------------------------------------- |
+| 鉴权 | `Authorization: Token <jwt>`；不带 token 返回 401，非作者返回 403                 |
+| 响应 | `{ "summary": { "summary", "keywords", "difficulty" }, "model", "cached" }`       |
+| 缓存 | Redis `articles:summary:<article_id>`，TTL 3600 秒；命中时 `cached: true`         |
+| 并发 | `SET NX EX 60` 锁；拿不到锁返回 409，避免重复调用 LLM                             |
+| 超时 | 总 deadline 由 `LLM_TIMEOUT_SECONDS` 控制（默认 20 秒）；超时返回 504             |
+| 失败 | LLM 未配置 / 连接失败 / 限流 / 结构校验失败返回 503                               |
 | 失效 | 文章更新或删除时，`invalidate_all_articles()` 删除 `articles:*`，摘要缓存一并失效 |
 
 配置项（`.env`，模板见 `.env.example`）：

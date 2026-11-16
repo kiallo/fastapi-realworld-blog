@@ -191,6 +191,12 @@
 
 **运行**：
 
+# 先起测试库（独立 5433，不碰 5432 的开发库）
+docker compose up -d db redis test-db
+
+# 必须带 APP_ENV=test，否则 conftest 会直接报错
+$env:APP_ENV="test"
+
 ```bash
 # 全量（约 40 秒；慢在每次 lifespan 都要连 PostgreSQL）
 .\.venv\Scripts\python.exe -m pytest -q
@@ -260,6 +266,15 @@
 - 首次延迟 p50 X ms / p95 Y ms；缓存命中 p50 Z ms；
 - 成功率 10/10，人工评分 D/20；
 - 局限：样本只有 10 条、单人标注、单模型，数字只说明方向，不是 benchmark。
+
+## 变更记录
+
+### 2026-11-16
+
+- **测试隔离**：新增 `test-db`（宿主 5433，库名 `realworld_test`）；`TestAppSettings` 指向独立库
+  并设置 `env_file=None`，避免 `.env` 里的 `DATABASE_URL` 覆盖；`conftest.py` 在会话开始时
+  自动执行 `alembic upgrade head`。测试不再写入开发库 `realworld`。
+- **用例**：43 → 101，`app/` 覆盖率 73%。分层：接口（连真库）、仓储（假连接池）、服务与缓存（fakeredis）。
 
 ## 总结
 

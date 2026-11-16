@@ -76,12 +76,14 @@ async def test_get_article_by_slug(mock_conn, mock_article_row):
 
 @pytest.mark.asyncio
 async def test_get_article_not_found(mock_conn):
-    """get_article_by_slug — 文章不存在"""
+    """get_article_by_slug — 文章不存在，异常信息要带上 slug"""
     with patch("app.db.repositories.articles.queries") as mock_queries:
         mock_queries.get_article_by_slug = AsyncMock(return_value=None)
 
         repo = ArticlesRepository(mock_conn)
-        with pytest.raises(EntityDoesNotExist):
+        # 加上 match：EntityDoesNotExist 是宽带异常，
+        # 不验证消息的话，任何抛这个异常的 bug 都能骗过测试。
+        with pytest.raises(EntityDoesNotExist, match="nonexistent"):
             await repo.get_article_by_slug(slug="nonexistent")
 
 

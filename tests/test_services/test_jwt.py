@@ -74,7 +74,7 @@ def test_create_jwt_token_with_custom_content():
 
 
 def test_different_users_get_different_tokens():
-    """不同用户生成不同的 Token"""
+    """不同用户生成不同的 Token，且各自能解回自己的用户名"""
     token1 = create_access_token_for_user(
         user_username="user1",
         secret_key=SECRET_KEY,
@@ -85,4 +85,9 @@ def test_different_users_get_different_tokens():
         secret_key=SECRET_KEY,
         expires_delta=timedelta(hours=1),
     )
+
     assert token1 != token2
+    # 只断言「两个字符串不同」几乎恒成立（payload 不同必然签出不同 token），
+    # 真正要证明的是「token 里装的确实是对应用户」。
+    assert get_username_from_token(token=token1, secret_key=SECRET_KEY) == "user1"
+    assert get_username_from_token(token=token2, secret_key=SECRET_KEY) == "user2"

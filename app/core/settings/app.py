@@ -1,11 +1,13 @@
 import logging
 import sys
 from typing import Optional
-from pydantic import SecretStr, PostgresDsn
-from pydantic_settings import SettingsConfigDict
+
 from loguru import logger
-from app.core.settings.base import BaseAppSettings, AppEnvTypes
+from pydantic import PostgresDsn, SecretStr
+from pydantic_settings import SettingsConfigDict
+
 from app.core.logging import setup_logging
+from app.core.settings.base import AppEnvTypes, BaseAppSettings
 
 
 class AppSettings(BaseAppSettings):
@@ -21,7 +23,7 @@ class AppSettings(BaseAppSettings):
     version: str = "0.1.0"
 
     # ===== 数据库配置 =====
-    database_url: PostgresDsn = "postgresql://postgres:postgres@localhost:5432/postgres" # type: ignore
+    database_url: PostgresDsn = "postgresql://postgres:postgres@localhost:5432/postgres"  # type: ignore
 
     # 启动时连不上数据库怎么办？
     # False（开发）：打条警告照样启动 —— 数据库没开也能看 Swagger
@@ -74,6 +76,7 @@ class AppSettings(BaseAppSettings):
 
 class DevAppSettings(AppSettings):
     """开发环境配置"""
+
     debug: bool = True
     title: str = "RealWorld Blog API [DEV]"
     logging_level: int = logging.DEBUG
@@ -81,6 +84,7 @@ class DevAppSettings(AppSettings):
 
 class ProdAppSettings(AppSettings):
     """生产环境配置"""
+
     debug: bool = False
     title: str = "RealWorld Blog API"
     logging_level: int = logging.WARNING

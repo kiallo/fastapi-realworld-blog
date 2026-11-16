@@ -1,5 +1,7 @@
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
+
 from app.models.schemas.rwschema import RWSchema
 
 # 默认分页参数
@@ -9,8 +11,10 @@ DEFAULT_ARTICLES_OFFSET = 0
 
 # ===== 请求 Schema =====
 
+
 class ArticleInCreate(RWSchema):
     """创建文章请求"""
+
     title: str = Field(..., min_length=1, max_length=200)
     description: str = Field(..., min_length=1, max_length=500)
     body: str = Field(..., min_length=1)
@@ -19,6 +23,7 @@ class ArticleInCreate(RWSchema):
 
 class ArticleInUpdate(RWSchema):
     """更新文章请求 — 所有字段可选（部分更新）"""
+
     title: Optional[str] = None
     description: Optional[str] = None
     body: Optional[str] = None
@@ -26,8 +31,10 @@ class ArticleInUpdate(RWSchema):
 
 # ===== 响应 Schema =====
 
+
 class ArticleForResponse(RWSchema):
     """单篇文章响应"""
+
     slug: str
     title: str
     description: str
@@ -42,11 +49,13 @@ class ArticleForResponse(RWSchema):
 
 class ArticleInResponse(RWSchema):
     """{ "article": {...} } 包装格式"""
+
     article: ArticleForResponse
 
 
 class ArticlesListInResponse(RWSchema):
     """文章列表响应"""
+
     articles: List[ArticleForResponse]
     articles_count: int = Field(..., alias="articlesCount")
 
@@ -56,6 +65,7 @@ class ArticlesListInResponse(RWSchema):
 
 class ArticlesFilters(BaseModel):
     """文章列表的查询参数聚合（不需要 RWModel 的后处理）"""
+
     tag: Optional[str] = None
     author: Optional[str] = None
     favorited: Optional[str] = None
@@ -65,4 +75,5 @@ class ArticlesFilters(BaseModel):
 
 # 解决循环引用
 from app.models.schemas.profiles import ProfileForResponse  # noqa: E402
+
 ArticleForResponse.model_rebuild()

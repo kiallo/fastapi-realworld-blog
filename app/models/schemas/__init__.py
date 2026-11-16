@@ -1,17 +1,27 @@
-from app.models.schemas.users import (
-    UserInCreate, UserInLogin, UserInUpdate,
-    UserForResponse, UserWithToken, UserInResponse,
-)
 from app.models.schemas.articles import (
-    ArticleInCreate, ArticleInUpdate,
-    ArticleForResponse, ArticleInResponse, ArticlesListInResponse,
+    ArticleForResponse,
+    ArticleInCreate,
+    ArticleInResponse,
+    ArticleInUpdate,
     ArticlesFilters,
+    ArticlesListInResponse,
 )
 from app.models.schemas.comments import (
-    CommentInCreate, CommentForResponse, CommentInResponse,
+    CommentForResponse,
+    CommentInCreate,
+    CommentInResponse,
     CommentsListInResponse,
 )
+from app.models.schemas.jwt import JWTMeta, JWTToken, JWTUser
 from app.models.schemas.profiles import (
-    ProfileForResponse, ProfileInResponse,
+    ProfileForResponse,
+    ProfileInResponse,
 )
-from app.models.schemas.jwt import JWTMeta, JWTUser, JWTToken
+from app.models.schemas.users import (
+    UserForResponse,
+    UserInCreate,
+    UserInLogin,
+    UserInResponse,
+    UserInUpdate,
+    UserWithToken,
+)

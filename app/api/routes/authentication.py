@@ -1,17 +1,23 @@
 from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from app.core.config import get_app_settings
-from app.api.dependencies.database import get_repository
+
 from app.api.dependencies.authentication import get_current_user_authorizer, get_token_from_header
+from app.api.dependencies.database import get_repository
+from app.core.config import get_app_settings
 from app.core.dependencies import get_token_storage
 from app.db.errors import EntityDoesNotExist
 from app.db.repositories.users import UsersRepository
-from app.models.schemas.users import (
-    UserInCreate, UserInLogin, UserInResponse, UserWithToken,
-)
 from app.models.domain.users import UserInDB
+from app.models.schemas.users import (
+    UserInCreate,
+    UserInLogin,
+    UserInResponse,
+    UserWithToken,
+)
 from app.services.authentication import (
-    check_username_is_taken, check_email_is_taken,
+    check_email_is_taken,
+    check_username_is_taken,
 )
 from app.services.jwt import create_access_token_for_user, generate_session_id
 from app.services.security import generate_salt, get_password_hash, verify_password
@@ -171,7 +177,7 @@ async def login(
 @router.get("/me", response_model=UserInResponse)
 async def get_current_user_info(
     current_user: UserInDB = Depends(get_current_user_authorizer()),
-    token: str = Depends(get_token_from_header), 
+    token: str = Depends(get_token_from_header),
 ):
     """获取当前登录用户信息"""
     return _create_user_response(current_user, token)

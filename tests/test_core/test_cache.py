@@ -5,6 +5,7 @@ decode_responses=True 必须和 app/core/dependencies.py 里的建连参数一�
 否则 get() 返回 bytes，ArticleCache 里 `cached == NULL_SENTINEL` 的字符串
 比较永远为 False，哨兵逻辑会「假通过」。
 """
+
 import fakeredis.aioredis
 import pytest
 

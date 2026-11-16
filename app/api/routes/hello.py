@@ -1,14 +1,15 @@
-from typing import Optional
-
-from fastapi import APIRouter, Depends, Request, status
-from fastapi.responses import JSONResponse
 import asyncio
+from typing import Awaitable, Optional, cast
+
 import asyncpg
 import redis.asyncio as redis
+from fastapi import APIRouter, Depends, Request, status
+from fastapi.responses import JSONResponse
+
+from app.api.dependencies.authentication import get_current_user_authorizer
 from app.api.dependencies.database import get_connection_from_pool, get_repository
 from app.core.dependencies import get_redis
 from app.db.repositories.users import UsersRepository
-from app.api.dependencies.authentication import get_current_user_authorizer
 from app.models.domain.users import UserInDB
 
 router = APIRouter()
@@ -54,7 +55,7 @@ async def health(
 
     # Redis
     try:
-        await redis_client.ping()
+        await cast("Awaitable[bool]", redis_client.ping())
         checks["redis"] = "up"
     except Exception:
         checks["redis"] = "down"
@@ -62,10 +63,7 @@ async def health(
     healthy = all(value == "up" for value in checks.values())
 
     return JSONResponse(
-        status_code=(
-            status.HTTP_200_OK if healthy
-            else status.HTTP_503_SERVICE_UNAVAILABLE
-        ),
+        status_code=(status.HTTP_200_OK if healthy else status.HTTP_503_SERVICE_UNAVAILABLE),
         content={
             "status": "ok" if healthy else "degraded",
             "checks": checks,

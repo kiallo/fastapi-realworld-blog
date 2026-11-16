@@ -2,6 +2,7 @@
 
 纯函数测试，不碰数据库、不碰 Redis。
 """
+
 from app.services.security import generate_salt, get_password_hash, verify_password
 
 

@@ -3,12 +3,13 @@
 
 用于测试和演示 Redis 会话管理功能
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.core.dependencies import get_redis
+
 from app.api.dependencies.authentication import get_current_user_authorizer
+from app.core.dependencies import get_redis, get_token_storage
 from app.models.domain.users import UserInDB
 from app.services.token_storage import TokenStorage
-from app.core.dependencies import get_token_storage
 
 router = APIRouter(prefix="/session", tags=["session-demo"])
 
@@ -79,6 +80,8 @@ async def force_logout_user(
 
 
 router.get("/validate")
+
+
 async def validate_session(
     current_user: UserInDB = Depends(get_current_user_authorizer()),
     token_storage: TokenStorage = Depends(get_token_storage),

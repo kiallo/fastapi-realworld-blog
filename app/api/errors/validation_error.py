@@ -24,6 +24,6 @@ async def http422_error_handler(
         errors.append(f"{field}: {msg}" if field else msg)
 
     return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={"errors": {"body": errors}},
-        )
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"errors": {"body": errors}},
+    )

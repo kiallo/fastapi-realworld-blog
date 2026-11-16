@@ -1,12 +1,14 @@
 """评论 Repository 测试"""
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from app.db.repositories.comments import CommentsRepository
+from app.models.domain.articles import Article
 from app.models.domain.comments import Comment
 from app.models.domain.profiles import Profile
-from app.models.domain.articles import Article
 
 
 @pytest.fixture
@@ -45,15 +47,13 @@ def mock_comment_row():
 @pytest.mark.asyncio
 async def test_get_comments_for_article(mock_conn, mock_article, mock_comment_row):
     """get_comments_for_article — 获取文章评论列表"""
-    with patch("app.db.repositories.comments.queries") as mock_queries, \
-         patch("app.db.repositories.comments.ProfilesRepository") as MockProfilesRepo:
-        mock_queries.get_comments_for_article_by_slug = AsyncMock(
-            return_value=[mock_comment_row]
-        )
+    with (
+        patch("app.db.repositories.comments.queries") as mock_queries,
+        patch("app.db.repositories.comments.ProfilesRepository") as MockProfilesRepo,
+    ):
+        mock_queries.get_comments_for_article_by_slug = AsyncMock(return_value=[mock_comment_row])
         mock_profile = Profile(username="testuser", bio="", image=None, following=False)
-        MockProfilesRepo.return_value.get_profile_by_username = AsyncMock(
-            return_value=mock_profile
-        )
+        MockProfilesRepo.return_value.get_profile_by_username = AsyncMock(return_value=mock_profile)
 
         repo = CommentsRepository(mock_conn)
         comments = await repo.get_comments_for_article(article=mock_article)
@@ -66,20 +66,16 @@ async def test_get_comments_for_article(mock_conn, mock_article, mock_comment_ro
 @pytest.mark.asyncio
 async def test_get_comment_by_id(mock_conn, mock_article, mock_comment_row):
     """get_comment_by_id — 获取单条评论"""
-    with patch("app.db.repositories.comments.queries") as mock_queries, \
-         patch("app.db.repositories.comments.ProfilesRepository") as MockProfilesRepo:
-        mock_queries.get_comment_by_id_and_slug = AsyncMock(
-            return_value=mock_comment_row
-        )
+    with (
+        patch("app.db.repositories.comments.queries") as mock_queries,
+        patch("app.db.repositories.comments.ProfilesRepository") as MockProfilesRepo,
+    ):
+        mock_queries.get_comment_by_id_and_slug = AsyncMock(return_value=mock_comment_row)
         mock_profile = Profile(username="testuser", bio="", image=None, following=False)
-        MockProfilesRepo.return_value.get_profile_by_username = AsyncMock(
-            return_value=mock_profile
-        )
+        MockProfilesRepo.return_value.get_profile_by_username = AsyncMock(return_value=mock_profile)
 
         repo = CommentsRepository(mock_conn)
-        comment = await repo.get_comment_by_id(
-            comment_id=1, article=mock_article
-        )
+        comment = await repo.get_comment_by_id(comment_id=1, article=mock_article)
 
     assert comment.id == 1
     assert comment.body == "测试评论内容"
@@ -115,13 +111,13 @@ async def test_create_comment_for_article(mock_conn, mock_article, mock_comment_
         updated_at=datetime(2024, 1, 1),
     )
 
-    with patch("app.db.repositories.comments.queries") as mock_queries, \
-         patch("app.db.repositories.comments.ProfilesRepository") as MockProfilesRepo:
+    with (
+        patch("app.db.repositories.comments.queries") as mock_queries,
+        patch("app.db.repositories.comments.ProfilesRepository") as MockProfilesRepo,
+    ):
         mock_queries.create_new_comment = AsyncMock(return_value=mock_comment_row)
         mock_profile = Profile(username="testuser", bio="", image=None, following=False)
-        MockProfilesRepo.return_value.get_profile_by_username = AsyncMock(
-            return_value=mock_profile
-        )
+        MockProfilesRepo.return_value.get_profile_by_username = AsyncMock(return_value=mock_profile)
 
         repo = CommentsRepository(mock_conn)
         comment = await repo.create_comment_for_article(

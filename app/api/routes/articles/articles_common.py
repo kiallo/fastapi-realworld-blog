@@ -25,11 +25,11 @@ def _article_to_response(article: Article) -> ArticleForResponse:
         title=article.title,
         description=article.description,
         body=article.body,
-        tag_list=article.tags, # type: ignore
+        tag_list=article.tags,  # type: ignore
         created_at=str(article.created_at),
         updated_at=str(article.updated_at),
         favorited=article.favorited,
-        favorites_count=article.favorites_count, # type: ignore
+        favorites_count=article.favorites_count,  # type: ignore
         author=ProfileForResponse(
             username=article.author.username,
             bio=article.author.bio,
@@ -44,7 +44,7 @@ async def favorite_article(
     article: Article = Depends(get_article_by_slug_from_path),
     current_user: User = Depends(get_current_user_authorizer()),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
-    _cache=Depends(invalidate_articles_cache),   # ★ 收藏数变了，列表缓存要清
+    _cache=Depends(invalidate_articles_cache),  # ★ 收藏数变了，列表缓存要清
 ) -> ArticleInResponse:
     """收藏文章"""
     if article.favorited:
@@ -57,20 +57,24 @@ async def favorite_article(
 
     return ArticleInResponse(
         article=_article_to_response(
-            article.model_copy(update={
-                "favorited": True,
-                "favorites_count": article.favorites_count + 1,
-            })
+            article.model_copy(
+                update={
+                    "favorited": True,
+                    "favorites_count": article.favorites_count + 1,
+                }
+            )
         )
     )
 
 
-@router.delete("/{slug}/favorite", response_model=ArticleInResponse, name="articles:unmark-favorite")
+@router.delete(
+    "/{slug}/favorite", response_model=ArticleInResponse, name="articles:unmark-favorite"
+)
 async def unfavorite_article(
     article: Article = Depends(get_article_by_slug_from_path),
     current_user: User = Depends(get_current_user_authorizer()),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
-    _cache=Depends(invalidate_articles_cache),   # ★ 收藏数变了，列表缓存要清
+    _cache=Depends(invalidate_articles_cache),  # ★ 收藏数变了，列表缓存要清
 ) -> ArticleInResponse:
     """取消收藏"""
     if not article.favorited:
@@ -83,9 +87,11 @@ async def unfavorite_article(
 
     return ArticleInResponse(
         article=_article_to_response(
-            article.model_copy(update={
-                "favorited": False,
-                "favorites_count": article.favorites_count - 1,
-            })
+            article.model_copy(
+                update={
+                    "favorited": False,
+                    "favorites_count": article.favorites_count - 1,
+                }
+            )
         )
     )

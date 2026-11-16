@@ -1,6 +1,8 @@
 """标签 API 测试"""
-import pytest
+
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from app.db.repositories.tags import TagsRepository
 
@@ -14,11 +16,13 @@ def mock_conn():
 async def test_get_all_tags(mock_conn):
     """get_all_tags — 获取所有标签"""
     with patch("app.db.repositories.tags.queries") as mock_queries:
-        mock_queries.get_all_tags = AsyncMock(return_value=[
-            {"tag": "python"},
-            {"tag": "fastapi"},
-            {"tag": "asyncpg"},
-        ])
+        mock_queries.get_all_tags = AsyncMock(
+            return_value=[
+                {"tag": "python"},
+                {"tag": "fastapi"},
+                {"tag": "asyncpg"},
+            ]
+        )
 
         repo = TagsRepository(mock_conn)
         tags = await repo.get_all_tags()
@@ -59,10 +63,12 @@ async def test_create_tags_that_dont_exist(mock_conn):
 async def test_get_tags_for_article(mock_conn):
     """get_tags_for_article — 获取文章标签"""
     with patch("app.db.repositories.tags.queries") as mock_queries:
-        mock_queries.get_tags_for_article = AsyncMock(return_value=[
-            {"tag": "python"},
-            {"tag": "web"},
-        ])
+        mock_queries.get_tags_for_article = AsyncMock(
+            return_value=[
+                {"tag": "python"},
+                {"tag": "web"},
+            ]
+        )
 
         repo = TagsRepository(mock_conn)
         tags = await repo.get_tags_for_article(article_id=1)

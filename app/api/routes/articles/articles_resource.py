@@ -1,11 +1,8 @@
 from typing import Optional
 
-import redis.asyncio as redis      
+import redis.asyncio as redis
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from starlette import status
-
-from app.core.cache import ArticleCache                       
-from app.core.dependencies import get_redis   
 
 from app.api.dependencies.articles import (
     check_article_modification_permissions,
@@ -15,6 +12,8 @@ from app.api.dependencies.articles import (
 )
 from app.api.dependencies.authentication import get_current_user_authorizer
 from app.api.dependencies.database import get_repository
+from app.core.cache import ArticleCache
+from app.core.dependencies import get_redis
 from app.db.repositories.articles import ArticlesRepository
 from app.models.domain.articles import Article
 from app.models.domain.users import User
@@ -41,11 +40,11 @@ def _article_to_response(article: Article) -> ArticleForResponse:
         title=article.title,
         description=article.description,
         body=article.body,
-        tag_list=article.tags, # type: ignore
+        tag_list=article.tags,  # type: ignore
         created_at=str(article.created_at),
         updated_at=str(article.updated_at),
         favorited=article.favorited,
-        favorites_count=article.favorites_count, # type: ignore
+        favorites_count=article.favorites_count,  # type: ignore
         author=ProfileForResponse(
             username=article.author.username,
             bio=article.author.bio,
@@ -60,7 +59,7 @@ async def list_articles(
     filters: ArticlesFilters = Depends(),
     user: Optional[User] = Depends(get_current_user_authorizer(required=False)),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
-    redis_client: redis.Redis = Depends(get_redis),         
+    redis_client: redis.Redis = Depends(get_redis),
 ) -> ArticlesListInResponse:
     """
     文章列表 — 支持多维度过滤（tag/author/favorited）
@@ -70,7 +69,7 @@ async def list_articles(
     把登录用户的响应缓存下来会串数据。
     """
     cache = ArticleCache(redis_client)
-    use_cache = user is None                                 
+    use_cache = user is None
 
     # ---------- ① 先试缓存 ----------
     if use_cache:
@@ -116,12 +115,18 @@ async def list_articles(
         articlesCount=len(articles),
     )
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=ArticleInResponse, name="articles:create-article")
+
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ArticleInResponse,
+    name="articles:create-article",
+)
 async def create_article(
     article_create: ArticleInCreate = Body(..., embed=True, alias="article"),
     current_user: User = Depends(get_current_user_authorizer()),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
-    _=Depends(invalidate_articles_cache),   # ★ 成功后清文章缓存
+    _=Depends(invalidate_articles_cache),  # ★ 成功后清文章缓存
 ) -> ArticleInResponse:
     """创建文章"""
     slug = get_slug_for_article(article_create.title)
@@ -176,7 +181,7 @@ async def update_article(
     article: Article = Depends(get_article_by_slug_from_path),
     _=Depends(check_article_modification_permissions),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
-    _cache=Depends(invalidate_articles_cache),   # ★ 成功后清文章缓存
+    _cache=Depends(invalidate_articles_cache),  # ★ 成功后清文章缓存
 ) -> ArticleInResponse:
     """更新文章 — 只有作者可以修改"""
     updated = await articles_repo.update_article(
@@ -189,12 +194,17 @@ async def update_article(
     return ArticleInResponse(article=_article_to_response(updated))
 
 
-@router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT, name="articles:delete-article", response_class=Response)
+@router.delete(
+    "/{slug}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    name="articles:delete-article",
+    response_class=Response,
+)
 async def delete_article(
     article: Article = Depends(get_article_by_slug_from_path),
     _=Depends(check_article_modification_permissions),
     articles_repo: ArticlesRepository = Depends(get_repository(ArticlesRepository)),
-    _cache=Depends(invalidate_articles_cache),   # ★ 成功后清文章缓存
+    _cache=Depends(invalidate_articles_cache),  # ★ 成功后清文章缓存
 ) -> None:
     """删除文章 — 只有作者可以删除"""
     await articles_repo.delete_article(article=article)

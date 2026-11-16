@@ -70,7 +70,7 @@ async def test_login_with_invalid_credentials_returns_400(client: AsyncClient):
     现在把两种失败放在一起对比，才真正锁住了防枚举的设计。
     """
     payload = _unique_user_payload()
-    await client.post("/users", json=payload)   # 确保这个用户真实存在
+    await client.post("/users", json=payload)  # 确保这个用户真实存在
 
     wrong_password = await client.post(
         "/users/login",

@@ -1,7 +1,9 @@
 from typing import Dict, List, Sequence
+
 import asyncpg
-from app.db.repositories.base import BaseRepository
+
 from app.db.queries.queries import queries
+from app.db.repositories.base import BaseRepository
 
 
 class TagsRepository(BaseRepository):
@@ -14,16 +16,18 @@ class TagsRepository(BaseRepository):
     async def create_tags_that_dont_exist(self, *, tags: List[str]) -> None:
         """批量插入不存在的标签"""
         for tag in tags:
-            await queries.create_tag(self.connection, tag=tag) # type: ignore
+            await queries.create_tag(self.connection, tag=tag)  # type: ignore
 
     async def get_tags_for_article(self, *, article_id: int) -> List[str]:
-        rows = await queries.get_tags_for_article( # type: ignore
+        rows = await queries.get_tags_for_article(  # type: ignore
             self.connection, article_id=article_id
         )
         return [r["tag"] for r in rows]
 
     async def get_tags_for_articles(
-        self, *, slugs: Sequence[str],
+        self,
+        *,
+        slugs: Sequence[str],
     ) -> Dict[str, List[str]]:
         """
         ★ 批量获取多篇文章的标签 —— 一条 SQL 解决，替代 N 次单篇查询
@@ -35,7 +39,8 @@ class TagsRepository(BaseRepository):
 
         slug_list = list(slugs)
         rows = await queries.get_tags_for_articles_by_slugs(  # type: ignore
-            self.connection, slugs=slug_list,
+            self.connection,
+            slugs=slug_list,
         )
 
         tags_by_slug: Dict[str, List[str]] = {slug: [] for slug in slug_list}
@@ -46,8 +51,6 @@ class TagsRepository(BaseRepository):
     async def link_article_with_tags(self, *, article_id: int, tags: List[str]) -> None:
         """关联文章与标签"""
         for tag in tags:
-            await queries.link_article_tag( # type: ignore
+            await queries.link_article_tag(  # type: ignore
                 self.connection, article_id=article_id, tag=tag
             )
-
-    

@@ -1,12 +1,14 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
+
 import asyncpg
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
+
 from app.api.routes.api import router as api_router
 from app.core.config import get_app_settings
-from app.core.middleware import TimingMiddleware, LoggingMiddleware
+from app.core.middleware import LoggingMiddleware, TimingMiddleware
 from app.services.summary import build_summary_service
 
 
@@ -64,8 +66,10 @@ def get_application() -> FastAPI:
     """
     from fastapi.exceptions import RequestValidationError
     from starlette.exceptions import HTTPException as StarletteHTTPException
+
     from app.api.errors.http_error import http_error_handler
     from app.api.errors.validation_error import http422_error_handler
+
     # ① 获取配置
     settings = get_app_settings()
 
@@ -81,7 +85,7 @@ def get_application() -> FastAPI:
     # ④ 添加中间件（CORS — 允许跨域请求）
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],           # 开发阶段允许所有来源
+        allow_origins=["*"],  # 开发阶段允许所有来源
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -93,8 +97,8 @@ def get_application() -> FastAPI:
     application.include_router(api_router)
 
     # ⑥ 注册异常处理器
-    application.add_exception_handler(StarletteHTTPException, http_error_handler) # type: ignore
-    application.add_exception_handler(RequestValidationError, http422_error_handler) # type: ignore
+    application.add_exception_handler(StarletteHTTPException, http_error_handler)  # type: ignore
+    application.add_exception_handler(RequestValidationError, http422_error_handler)  # type: ignore
 
     return application
 

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional
+from typing import Optional, cast
 
 from fastapi import HTTPException, Request
 from loguru import logger
@@ -52,7 +52,7 @@ def extract_json(text: str) -> str:
     end = text.rfind("}")
     if start == -1 or end == -1 or end <= start:
         raise ValueError("输出里找不到 JSON 对象")
-    return text[start:end + 1]
+    return text[start : end + 1]
 
 
 class SummaryService:
@@ -88,7 +88,7 @@ class SummaryService:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + self._timeout
 
-        for attempt in range(1, 3):          # 最多两次：首次 + 修复/重试
+        for attempt in range(1, 3):  # 最多两次：首次 + 修复/重试
             remaining = deadline - loop.time()
             if remaining <= 0:
                 raise SummaryTimeoutError("摘要生成超时")
@@ -98,7 +98,7 @@ class SummaryService:
                 response = await asyncio.wait_for(
                     self._client.chat.completions.create(
                         model=self.model,
-                        messages=messages,
+                        messages=messages,  # type: ignore[arg-type]
                     ),
                     timeout=remaining,
                 )
@@ -120,21 +120,21 @@ class SummaryService:
             raw = response.choices[0].message.content or ""
 
             try:
-                content = ArticleSummaryContent.model_validate_json(
-                    extract_json(raw)
-                )
+                content = ArticleSummaryContent.model_validate_json(extract_json(raw))
             except (ValueError, ValidationError) as exc:
                 last_error = exc
                 logger.warning(f"摘要第 {attempt} 次输出不合法: {exc}")
                 messages.append({"role": "assistant", "content": raw})
-                messages.append({
-                    "role": "user",
-                    "content": (
-                        "上面的输出不符合 schema。"
-                        "请只输出合法 JSON，不要解释。"
-                        f"错误：{exc}"
-                    ),
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "上面的输出不符合 schema。"
+                            "请只输出合法 JSON，不要解释。"
+                            f"错误：{exc}"
+                        ),
+                    }
+                )
                 continue
 
             usage = response.usage
@@ -180,4 +180,4 @@ def get_summary_service(request: Request) -> SummaryService:
             status_code=503,
             detail="LLM 未配置，摘要功能不可用",
         )
-    return service
+    return cast("SummaryService", service)

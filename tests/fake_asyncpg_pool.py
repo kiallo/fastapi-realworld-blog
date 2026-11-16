@@ -1,4 +1,5 @@
 """Fake asyncpg pool for testing without a real database."""
+
 from unittest.mock import AsyncMock, MagicMock
 
 

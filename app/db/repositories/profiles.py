@@ -14,13 +14,14 @@ UserLike = Union[User, Profile]
 class ProfilesRepository(BaseRepository):
 
     async def get_profile_by_username(
-        self, *, username: str, current_user_id: Optional[int] = None,
+        self,
+        *,
+        username: str,
+        current_user_id: Optional[int] = None,
         requested_user: Optional[UserLike] = None,
     ) -> Profile:
         """获取用户公开资料 — 含关注状态"""
-        row = await queries.get_user_by_username(  # type: ignore
-            self.connection, username=username
-        )
+        row = await queries.get_user_by_username(self.connection, username=username)  # type: ignore
         if row is None:
             raise EntityDoesNotExist(f"用户 {username} 不存在")
 
@@ -48,7 +49,9 @@ class ProfilesRepository(BaseRepository):
         )
 
     async def get_profiles_by_usernames(
-        self, *, usernames: Sequence[str],
+        self,
+        *,
+        usernames: Sequence[str],
         requested_user: Optional[UserLike] = None,
     ) -> Dict[str, Profile]:
         """
@@ -64,7 +67,8 @@ class ProfilesRepository(BaseRepository):
 
         username_list = list(dict.fromkeys(usernames))  # 去重，保持顺序
         rows = await queries.get_users_by_usernames(  # type: ignore
-            self.connection, usernames=username_list,
+            self.connection,
+            usernames=username_list,
         )
 
         following: Set[str] = set()
@@ -87,7 +91,10 @@ class ProfilesRepository(BaseRepository):
         }
 
     async def add_user_into_followers(
-        self, *, target_user: UserLike, requested_user: UserLike,
+        self,
+        *,
+        target_user: UserLike,
+        requested_user: UserLike,
     ) -> None:
         """关注用户"""
         async with self.connection.transaction():
@@ -98,7 +105,10 @@ class ProfilesRepository(BaseRepository):
             )
 
     async def remove_user_from_followers(
-        self, *, target_user: UserLike, requested_user: UserLike,
+        self,
+        *,
+        target_user: UserLike,
+        requested_user: UserLike,
     ) -> None:
         """取消关注"""
         async with self.connection.transaction():

@@ -2,6 +2,7 @@
 
 全部对纯函数和服务类断言：不走 HTTP、不连数据库、不调真实 LLM、不产生费用。
 """
+
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -32,9 +33,7 @@ def _response(content, prompt=10, completion=5):
 def _http_error(status_code):
     return APIStatusError(
         "llm error",
-        response=httpx.Response(
-            status_code, request=httpx.Request("POST", "http://llm")
-        ),
+        response=httpx.Response(status_code, request=httpx.Request("POST", "http://llm")),
         body=None,
     )
 
@@ -120,9 +119,7 @@ class TestGenerate:
 
     async def test_api_timeout_raises_timeout_error(self):
         client = MagicMock()
-        client.chat.completions.create = AsyncMock(
-            side_effect=APITimeoutError(request=MagicMock())
-        )
+        client.chat.completions.create = AsyncMock(side_effect=APITimeoutError(request=MagicMock()))
 
         with pytest.raises(SummaryTimeoutError):
             await _service(client).generate(title="t", body="b")

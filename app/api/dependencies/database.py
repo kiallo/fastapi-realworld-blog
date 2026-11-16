@@ -1,6 +1,8 @@
-from typing import AsyncGenerator, Type, Callable
+from typing import AsyncGenerator, Callable, Type
+
 import asyncpg
-from fastapi import Request, Depends
+from fastapi import Depends, Request
+
 from app.db.repositories.base import BaseRepository
 
 
@@ -17,7 +19,7 @@ async def get_connection_from_pool(
     pool: asyncpg.Pool = request.app.state.pool
 
     async with pool.acquire() as connection:
-        yield connection # type: ignore
+        yield connection  # type: ignore
     # async with 结束后自动归还连接
 
 

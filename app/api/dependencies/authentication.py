@@ -1,15 +1,18 @@
-from typing import Optional, Callable
-from fastapi import Request, HTTPException, status, Depends
+from typing import Callable, Optional
+
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import APIKeyHeader
-from app.core.config import get_app_settings
+
 from app.api.dependencies.database import get_repository
+from app.core.config import get_app_settings
 from app.core.dependencies import get_token_storage
 from app.db.repositories.users import UsersRepository
-from app.services.jwt import get_user_from_token
 from app.models.domain.users import UserInDB
+from app.services.jwt import get_user_from_token
 from app.services.token_storage import TokenStorage
 
 # ===== 自定义 APIKeyHeader =====
+
 
 class RWAPIKeyHeader(APIKeyHeader):
     """RealWorld 风格的 API Key Header 提取器"""
@@ -27,10 +30,9 @@ class RWAPIKeyHeader(APIKeyHeader):
 
 # ===== Token 前缀 =====
 
+
 def get_token_from_header(
-    api_key: str = Depends(
-        RWAPIKeyHeader(name="Authorization", auto_error=False)
-    ),
+    api_key: str = Depends(RWAPIKeyHeader(name="Authorization", auto_error=False)),
     settings=Depends(get_app_settings),
 ) -> str:
     """
@@ -46,10 +48,11 @@ def get_token_from_header(
     if not api_key.startswith(token_prefix):
         return ""
 
-    return api_key[len(token_prefix):]
+    return api_key[len(token_prefix) :]
 
 
 # ===== ★ 唯一的认证实现 =====
+
 
 async def _authenticate(
     token: str,
@@ -91,7 +94,8 @@ async def _authenticate(
 
     # ★ Redis 白名单：可选认证也必须过这一关
     is_valid = await token_storage.is_session_valid(
-        jwt_user.username, jwt_user.session_id,
+        jwt_user.username,
+        jwt_user.session_id,
     )
     if not is_valid:
         raise HTTPException(
@@ -108,9 +112,7 @@ async def _authenticate(
         )
 
 
-def get_current_user_authorizer(
-    *, required: bool = True
-) -> Callable:
+def get_current_user_authorizer(*, required: bool = True) -> Callable:
     """
     认证工厂函数
 

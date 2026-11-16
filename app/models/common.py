@@ -1,4 +1,5 @@
 import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -27,6 +28,7 @@ def convert_field_to_camel_case(snake_str: str) -> str:
 
 class IDModelMixin(BaseModel):
     """提供 id 字段的 Mixin"""
+
     id: int = Field(..., description="主键 ID")
 
 
@@ -37,9 +39,6 @@ class DateTimeModelMixin(BaseModel):
     注意：不在此处设置 alias，由 RWModel 的 alias_generator 统一生成 camelCase 别名。
     这样类型检查器能正确识别 populate_by_name 的构造函数签名。
     """
+
     created_at: datetime.datetime
     updated_at: datetime.datetime
-    
-    
-
-    

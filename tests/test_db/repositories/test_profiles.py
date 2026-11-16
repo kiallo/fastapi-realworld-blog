@@ -1,10 +1,12 @@
 """用户资料 Repository 测试"""
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 
-from app.db.repositories.profiles import ProfilesRepository
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from app.db.errors import EntityDoesNotExist
+from app.db.repositories.profiles import ProfilesRepository
 from app.models.domain.profiles import Profile
 
 
@@ -31,11 +33,10 @@ async def test_get_profile_by_username(mock_conn, mock_user_row):
     """get_profile_by_username — 获取用户资料"""
     with patch("app.db.repositories.profiles.queries") as mock_queries:
         mock_queries.get_user_by_username = AsyncMock(return_value=mock_user_row)
-        mock_queries.is_user_following_for_another = AsyncMock(
-            return_value={"is_following": False}
-        )
+        mock_queries.is_user_following_for_another = AsyncMock(return_value={"is_following": False})
 
         from app.models.domain.users import User
+
         requested_user = User(username="otheruser", email="other@test.com", bio="", image=None)
 
         repo = ProfilesRepository(mock_conn)
@@ -65,11 +66,10 @@ async def test_get_profile_following_status(mock_conn, mock_user_row):
     """get_profile_by_username — 返回正确的关注状态"""
     with patch("app.db.repositories.profiles.queries") as mock_queries:
         mock_queries.get_user_by_username = AsyncMock(return_value=mock_user_row)
-        mock_queries.is_user_following_for_another = AsyncMock(
-            return_value={"is_following": True}
-        )
+        mock_queries.is_user_following_for_another = AsyncMock(return_value={"is_following": True})
 
         from app.models.domain.users import User
+
         requested_user = User(username="follower", email="f@test.com", bio="", image=None)
 
         repo = ProfilesRepository(mock_conn)
@@ -88,6 +88,7 @@ async def test_add_user_into_followers(mock_conn):
         mock_queries.subscribe_user_to_another = AsyncMock()
 
         from app.models.domain.users import User
+
         target = User(username="target", email="t@test.com", bio="", image=None)
         requester = User(username="requester", email="r@test.com", bio="", image=None)
 
@@ -111,6 +112,7 @@ async def test_remove_user_from_followers(mock_conn):
         mock_queries.unsubscribe_user_from_another = AsyncMock()
 
         from app.models.domain.users import User
+
         target = User(username="target", email="t@test.com", bio="", image=None)
         requester = User(username="requester", email="r@test.com", bio="", image=None)
 

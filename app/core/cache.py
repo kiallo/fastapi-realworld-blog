@@ -1,8 +1,10 @@
 import json
-from typing import Optional, Any, Callable
 from functools import wraps
+from typing import Any, Awaitable, Callable, Optional, cast
+
 import redis.asyncio as redis
 from loguru import logger
+
 from app.core.dependencies import get_redis
 
 
@@ -91,13 +93,12 @@ class ArticleCache:
                 return []
 
             logger.info(f"✅ 缓存命中: {cache_key}")
-            return json.loads(cached)
+            return cast("list[Any]", json.loads(cached))
 
         except Exception as e:
             # ⚠️ 缓存出问题不能让业务挂掉 —— 降级成"未命中"，去查库
             logger.error(f"获取缓存失败，降级为查库: {e}")
             return None
-
 
     async def set_article_list(
         self,
@@ -141,7 +142,7 @@ class ArticleCache:
             cached = await self.redis.get(cache_key)
             if cached is None:
                 return None
-            return json.loads(cached)
+            return cast("dict[Any, Any]", json.loads(cached))
         except Exception as e:
             # 缓存坏了不能拖垮接口：降级为重新生成
             logger.error(f"获取摘要缓存失败，降级为重新生成: {e}")
@@ -165,40 +166,34 @@ class ArticleCache:
     async def get_article_detail(self, article_id: int) -> Optional[dict]:
         """获取文章详情缓存"""
         cache_key = f"{self.DETAIL_PREFIX}:{article_id}"
-        
+
         try:
             cached = await self.redis.get(cache_key)
             if cached:
                 logger.info(f"✅ 缓存命中: {cache_key}")
-                return json.loads(cached)
-            
+                return cast("dict[Any, Any]", json.loads(cached))
+
             logger.info(f"❌ 缓存未命中: {cache_key}")
             return None
         except Exception as e:
             logger.error(f"获取缓存失败: {e}")
             return None
 
-
-    async def set_article_detail(
-        self, 
-        article_id: int, 
-        article_data: dict
-    ) -> bool:
+    async def set_article_detail(self, article_id: int, article_data: dict) -> bool:
         """设置文章详情缓存"""
         cache_key = f"{self.DETAIL_PREFIX}:{article_id}"
-        
+
         try:
             await self.redis.setex(
                 cache_key,
                 self.DETAIL_TTL,
-                json.dumps(article_data, ensure_ascii=False, default=str)
+                json.dumps(article_data, ensure_ascii=False, default=str),
             )
             logger.info(f"💾 缓存已设置: {cache_key} (TTL: {self.DETAIL_TTL}s)")
             return True
         except Exception as e:
             logger.error(f"设置缓存失败: {e}")
             return False
-
 
     async def invalidate_article(self, article_id: int):
         """使文章缓存失效"""
@@ -210,7 +205,6 @@ class ArticleCache:
             logger.info(f"🗑️ 缓存已失效: article_id={article_id}")
         except Exception as e:
             logger.error(f"缓存失效失败: {e}")
-
 
     async def invalidate_all_articles(self) -> int:
         """使所有文章缓存失效（列表 + 详情）
@@ -233,17 +227,15 @@ class ArticleCache:
             logger.error(f"缓存失效失败: {e}")
             return 0
 
-
     async def increment_view_count(self, article_id: int) -> int:
         """增加文章浏览量"""
         try:
-            count = await self.redis.incr(f"article:views:{article_id}")
+            count = await cast("Awaitable[int]", self.redis.incr(f"article:views:{article_id}"))
             logger.info(f"👁️ 文章浏览量: article_id={article_id}, views={count}")
             return count
         except Exception as e:
             logger.error(f"增加浏览量失败: {e}")
             return 0
-
 
     async def get_view_count(self, article_id: int) -> int:
         """获取文章浏览量"""
@@ -253,7 +245,6 @@ class ArticleCache:
         except Exception as e:
             logger.error(f"获取浏览量失败: {e}")
             return 0
-
 
     def cache_key_builder(*args, **kwargs) -> str:
         """构建缓存 key"""

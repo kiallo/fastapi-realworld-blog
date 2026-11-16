@@ -1,10 +1,12 @@
 """文章 Repository 测试"""
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 
-from app.db.repositories.articles import ArticlesRepository
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from app.db.errors import EntityDoesNotExist
+from app.db.repositories.articles import ArticlesRepository
 from app.models.domain.articles import Article
 from app.models.domain.profiles import Profile
 
@@ -48,18 +50,18 @@ def mock_article_row():
 @pytest.mark.asyncio
 async def test_get_article_by_slug(mock_conn, mock_article_row):
     """get_article_by_slug — 获取文章"""
-    with patch("app.db.repositories.articles.queries") as mock_queries, \
-         patch("app.db.repositories.articles.ProfilesRepository") as MockProfilesRepo, \
-         patch("app.db.repositories.articles.TagsRepository") as MockTagsRepo:
+    with (
+        patch("app.db.repositories.articles.queries") as mock_queries,
+        patch("app.db.repositories.articles.ProfilesRepository") as MockProfilesRepo,
+        patch("app.db.repositories.articles.TagsRepository") as MockTagsRepo,
+    ):
         mock_queries.get_article_by_slug = AsyncMock(return_value=mock_article_row)
         # ★ 改造后走的是"批量"方法：一次查一批文章
         mock_queries.get_favorites_count_for_articles = AsyncMock(
             return_value=[{"slug": "test-article", "favorites_count": 0}]
         )
         MockProfilesRepo.return_value.get_profiles_by_usernames = AsyncMock(
-            return_value={
-                "author": Profile(username="author", bio="", image=None, following=False)
-            }
+            return_value={"author": Profile(username="author", bio="", image=None, following=False)}
         )
         MockTagsRepo.return_value.get_tags_for_articles = AsyncMock(
             return_value={"test-article": ["python", "fastapi"]}
@@ -90,8 +92,8 @@ async def test_get_article_not_found(mock_conn):
 @pytest.mark.asyncio
 async def test_create_article(mock_conn, mock_article_row):
     """create_article — 创建文章"""
-    from app.models.domain.users import UserInDB
     from app.models.domain.profiles import Profile as ProfileModel
+    from app.models.domain.users import UserInDB
 
     mock_user = UserInDB(
         id=1,
@@ -105,9 +107,11 @@ async def test_create_article(mock_conn, mock_article_row):
         updated_at=datetime(2024, 1, 1),
     )
 
-    with patch("app.db.repositories.articles.queries") as mock_queries, \
-         patch("app.db.repositories.articles.ProfilesRepository") as MockProfilesRepo, \
-         patch("app.db.repositories.articles.TagsRepository") as MockTagsRepo:
+    with (
+        patch("app.db.repositories.articles.queries") as mock_queries,
+        patch("app.db.repositories.articles.ProfilesRepository") as MockProfilesRepo,
+        patch("app.db.repositories.articles.TagsRepository") as MockTagsRepo,
+    ):
         mock_queries.create_article = AsyncMock(return_value=mock_article_row)
         # create_article 最后会重新查一遍这篇文章，这里也要 mock（原来漏了）
         mock_queries.get_article_by_slug = AsyncMock(return_value=mock_article_row)
@@ -119,9 +123,7 @@ async def test_create_article(mock_conn, mock_article_row):
         mock_queries.get_favorited_slugs_for_user = AsyncMock(return_value=[])
         MockProfilesRepo.return_value.get_profiles_by_usernames = AsyncMock(
             return_value={
-                "author": ProfileModel(
-                    username="author", bio="", image=None, following=False
-                )
+                "author": ProfileModel(username="author", bio="", image=None, following=False)
             }
         )
         MockTagsRepo.return_value.get_tags_for_articles = AsyncMock(
@@ -148,9 +150,7 @@ async def test_create_article(mock_conn, mock_article_row):
 async def test_update_article(mock_conn, mock_article):
     """update_article — 更新文章"""
     with patch("app.db.repositories.articles.queries") as mock_queries:
-        mock_queries.update_article = AsyncMock(
-            return_value={"updated_at": datetime(2024, 6, 1)}
-        )
+        mock_queries.update_article = AsyncMock(return_value={"updated_at": datetime(2024, 6, 1)})
 
         repo = ArticlesRepository(mock_conn)
         updated = await repo.update_article(
@@ -207,9 +207,11 @@ async def test_get_articles_for_user_feed(mock_conn, mock_article_row):
         updated_at=datetime(2024, 1, 1),
     )
 
-    with patch("app.db.repositories.articles.queries") as mock_queries, \
-         patch("app.db.repositories.articles.ProfilesRepository") as MockProfilesRepo, \
-         patch("app.db.repositories.articles.TagsRepository") as MockTagsRepo:
+    with (
+        patch("app.db.repositories.articles.queries") as mock_queries,
+        patch("app.db.repositories.articles.ProfilesRepository") as MockProfilesRepo,
+        patch("app.db.repositories.articles.TagsRepository") as MockTagsRepo,
+    ):
         mock_queries.get_articles_for_feed = AsyncMock(return_value=[mock_article_row])
         # ★ 改造后走的是"批量"方法：一次查一批文章
         mock_queries.get_favorites_count_for_articles = AsyncMock(
@@ -218,9 +220,7 @@ async def test_get_articles_for_user_feed(mock_conn, mock_article_row):
         # 登录用户会多查一次"我收藏了哪几篇"
         mock_queries.get_favorited_slugs_for_user = AsyncMock(return_value=[])
         MockProfilesRepo.return_value.get_profiles_by_usernames = AsyncMock(
-            return_value={
-                "author": Profile(username="author", bio="", image=None, following=False)
-            }
+            return_value={"author": Profile(username="author", bio="", image=None, following=False)}
         )
         MockTagsRepo.return_value.get_tags_for_articles = AsyncMock(
             return_value={"test-article": []}

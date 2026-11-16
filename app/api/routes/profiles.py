@@ -7,7 +7,7 @@ from app.api.dependencies.profiles import get_profile_by_username_from_path
 from app.db.repositories.profiles import ProfilesRepository
 from app.models.domain.profiles import Profile
 from app.models.domain.users import User
-from app.models.schemas.profiles import ProfileInResponse, ProfileForResponse
+from app.models.schemas.profiles import ProfileForResponse, ProfileInResponse
 from app.resources import strings
 
 router = APIRouter()
@@ -60,7 +60,9 @@ async def follow_user(
     )
 
 
-@router.delete("/{username}/follow", response_model=ProfileInResponse, name="profiles:unfollow-user")
+@router.delete(
+    "/{username}/follow", response_model=ProfileInResponse, name="profiles:unfollow-user"
+)
 async def unfollow_user(
     profile: Profile = Depends(get_profile_by_username_from_path),
     current_user: User = Depends(get_current_user_authorizer()),

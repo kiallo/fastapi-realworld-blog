@@ -1,5 +1,6 @@
 from typing import Optional
-from fastapi import APIRouter, Query, Path
+
+from fastapi import APIRouter, Path, Query
 from pydantic import BaseModel, Field
 
 router = APIRouter(
@@ -14,12 +15,14 @@ class ItemCreate(BaseModel):
     price: float = Field(..., gt=0, description="价格，必须大于 0")
     description: Optional[str] = Field(None, max_length=500, description="商品描述")
 
+
 class ItemResponse(BaseModel):
     name: str
     price: float
 
 
 # ===== 端点 =====
+
 
 @router.get("")
 async def list_items(

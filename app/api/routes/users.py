@@ -10,4 +10,3 @@ router = APIRouter(
 async def get_user(user_id: int):
     """获取单个用户"""
     return {"user_id": user_id}
-

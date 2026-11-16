@@ -1,12 +1,16 @@
 """RWModel 序列化测试"""
-import pytest
+
 import datetime
+
+import pytest
+
+from app.models.common import convert_datetime_to_realworld, convert_field_to_camel_case
 from app.models.domain.rwmodel import RWModel
-from app.models.common import convert_field_to_camel_case, convert_datetime_to_realworld
 
 
 class SampleModel(RWModel):
     """测试用模型"""
+
     user_name: str
     is_active: bool = True
     created_at: datetime.datetime = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
@@ -14,7 +18,9 @@ class SampleModel(RWModel):
 
 def test_camel_case_alias_generation():
     """snake_case 字段自动生成 camelCase 别名"""
-    model = SampleModel(user_name="test", created_at=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc))
+    model = SampleModel(
+        user_name="test", created_at=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+    )
     # 通过别名访问
     assert model.model_dump(by_alias=True)["userName"] == "test"
     assert model.model_dump(by_alias=True)["isActive"] is True
@@ -64,7 +70,9 @@ def test_model_dump_by_field_name():
 def test_populate_by_name():
     """可以通过 snake_case 或 camelCase 创建模型"""
     # snake_case
-    model1 = SampleModel(user_name="a", created_at=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc))
+    model1 = SampleModel(
+        user_name="a", created_at=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+    )
     assert model1.user_name == "a"
 
     # camelCase（需要 populate_by_name=True）

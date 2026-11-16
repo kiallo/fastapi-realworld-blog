@@ -7,6 +7,7 @@
 decode_responses=True 必须和 app/core/dependencies.py 的建连参数一致，
 否则 get() 返回 bytes，json.loads 行为和断言取值都要跟着变。
 """
+
 import fakeredis.aioredis
 import pytest
 

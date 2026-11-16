@@ -1,7 +1,9 @@
 from typing import AsyncGenerator
-from loguru import logger
+
 import redis.asyncio as redis
 from fastapi import Depends
+from loguru import logger
+
 from app.core.config import get_app_settings
 from app.services.token_storage import TokenStorage
 
@@ -26,12 +28,12 @@ class RedisDependency:
                 max_connections=20,
                 retry_on_timeout=True,
                 # ★ 必须设超时：不设的话，Redis 如果是"网络黑洞"
-                #（不回包、也不拒绝），请求会一直挂在这里，
+                # （不回包、也不拒绝），请求会一直挂在这里，
                 # 而不是快速失败成 401。认证路径上的依赖不能无限等。
                 socket_connect_timeout=2,
                 socket_timeout=2,
             )
-        
+
         try:
             yield self._redis_client
         except redis.ConnectionError as e:
@@ -43,6 +45,7 @@ class RedisDependency:
 
 # 创建全局实例
 redis_dependency = RedisDependency()
+
 
 # 依赖函数
 async def get_redis() -> AsyncGenerator[redis.Redis, None]:
@@ -63,4 +66,5 @@ async def get_token_storage(
             ...
     """
     from app.services.token_storage import TokenStorage
+
     yield TokenStorage(redis_client)

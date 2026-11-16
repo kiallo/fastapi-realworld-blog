@@ -5,18 +5,15 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from asgi_lifespan import LifespanManager
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from app.core.config import get_app_settings
-from app.main import get_application
-from app.core.config import get_app_settings
 from app.core.settings.app import TestAppSettings
+from app.main import get_application
 
 _settings = get_app_settings()
 if not isinstance(_settings, TestAppSettings):
-    raise RuntimeError(
-        "测试必须用 APP_ENV=test 运行；否则会写进开发库 realworld。"
-    )
+    raise RuntimeError("测试必须用 APP_ENV=test 运行；否则会写进开发库 realworld。")
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -33,6 +30,7 @@ def _prepare_test_db():
     cfg.set_main_option("script_location", str(ROOT / "app" / "db" / "migrations"))
     cfg.set_main_option("sqlalchemy.url", str(settings.database_url))
     command.upgrade(cfg, "head")
+
 
 @pytest.fixture(scope="session")
 def event_loop():

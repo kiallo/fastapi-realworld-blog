@@ -1,4 +1,5 @@
 from pydantic import ConfigDict
+
 from app.models.domain.rwmodel import RWModel
 
 
@@ -15,4 +16,3 @@ class RWSchema(RWModel):
         populate_by_name=True,
         alias_generator=RWModel.model_config.get("alias_generator"),
     )
-

@@ -1,7 +1,11 @@
 import logging
 import sys
 from io import TextIOWrapper
+from types import FrameType
+from typing import Optional, Union
+
 from loguru import logger
+
 
 class InterceptHandler(logging.Handler):
     """
@@ -16,6 +20,7 @@ class InterceptHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         # ① 把标准库级别名映射为 Loguru 级别（如 "INFO"），避免显示成 "Level 20"
+        level: Union[str, int]
         try:
             level = logger.level(record.levelname).name
         except ValueError:
@@ -24,7 +29,8 @@ class InterceptHandler(logging.Handler):
         # ② 找到真正产生日志的调用者（跳过 logging 内部帧）
         #    从第 6 帧开始向上回溯，是因为 emit() 被 logging.Handler 链调用，
         #    中间隔着一层层 logging 的内部帧；循环跳过它们，最终停在用户代码。
-        frame, depth = sys._getframe(6), 6
+        frame: Optional[FrameType] = sys._getframe(6)
+        depth = 6
         while frame and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
             depth += 1
@@ -34,6 +40,7 @@ class InterceptHandler(logging.Handler):
             level,
             record.getMessage(),
         )
+
 
 def setup_logging(log_level: int, loggers: tuple[str, ...]) -> None:
     """
@@ -67,7 +74,7 @@ def setup_logging(log_level: int, loggers: tuple[str, ...]) -> None:
         ),
     )
 
-     # ③ 用 InterceptHandler 接管所有标准库 logger
+    # ③ 用 InterceptHandler 接管所有标准库 logger
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
     for logger_name in loggers:

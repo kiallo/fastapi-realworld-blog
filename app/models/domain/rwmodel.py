@@ -1,5 +1,7 @@
 import datetime
+
 from pydantic import BaseModel, ConfigDict, field_serializer
+
 from app.models.common import convert_datetime_to_realworld, convert_field_to_camel_case
 
 
@@ -16,7 +18,6 @@ class RWModel(BaseModel):
     model_config = ConfigDict(
         # 允许通过 Python 字段名（snake_case）或 JSON 别名（camelCase）赋值
         populate_by_name=True,
-
         # 自动为所有字段生成 camelCase 别名
         alias_generator=convert_field_to_camel_case,
     )

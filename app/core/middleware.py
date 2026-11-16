@@ -1,5 +1,6 @@
 import time
 import uuid
+
 from fastapi import Request
 from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -49,7 +50,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     """详细日志记录中间件"""
-    
+
     async def dispatch(self, request: Request, call_next):
         # 生成请求ID（用于追踪）
         request_id = str(uuid.uuid4())[:8]

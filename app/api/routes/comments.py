@@ -57,9 +57,7 @@ async def list_comments_for_article(
         article=article,
         user=user,
     )
-    return CommentsListInResponse(
-        comments=[_comment_to_response(c) for c in comments]
-    )
+    return CommentsListInResponse(comments=[_comment_to_response(c) for c in comments])
 
 
 @router.post(

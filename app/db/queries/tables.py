@@ -1,4 +1,4 @@
-from pypika import Table, Query, Parameter, CustomFunction
+from pypika import CustomFunction, Parameter, Query, Table
 
 
 # ===== 自定义 Parameter：适配 asyncpg 的 $1, $2... 占位符 =====
@@ -66,7 +66,6 @@ class Comments(Table):
     article_id: int
     created_at: str
     updated_at: str
-
 
 
 # ===== 模块级单例 =====

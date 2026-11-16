@@ -116,8 +116,7 @@ async def generate_article_summary(
         await cache.set_article_summary(article.id, payload)
 
         logger.info(
-            f"摘要接口完成 article_id={article.id} "
-            f"model={summary_service.model} cached=false"
+            f"摘要接口完成 article_id={article.id} " f"model={summary_service.model} cached=false"
         )
         return _to_response(payload, cached=False)
 

@@ -14,6 +14,7 @@ POST /articles/{slug}/summary   403 非作者 / 200 缓存命中 / 200 首次生
    因为 lifespan 会把 state.summary_service 重设为 None，
    而且会真实连 PostgreSQL，8 条测试要多花 6 秒。
 """
+
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
@@ -114,9 +115,7 @@ def fake_service():
     service.model = "test-model"
     content = MagicMock()
     content.model_dump.return_value = CACHED_PAYLOAD["summary"]
-    service.generate = AsyncMock(
-        return_value=(content, {"input_tokens": 1, "output_tokens": 1})
-    )
+    service.generate = AsyncMock(return_value=(content, {"input_tokens": 1, "output_tokens": 1}))
     return service
 
 

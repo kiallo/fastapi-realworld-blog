@@ -1,8 +1,10 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+
 import jwt
 from pydantic import ValidationError
+
 from app.models.schemas.jwt import JWTMeta, JWTUser
 
 
@@ -36,11 +38,13 @@ def create_jwt_token(
     now = datetime.now(timezone.utc)
     expire = now + expires_delta
 
-    to_encode.update({
-        "exp": expire,           # 过期时间（Unix 时间戳）
-        "iat": now,              # 签发时间
-        "sub": "access",         # 主题
-    })
+    to_encode.update(
+        {
+            "exp": expire,  # 过期时间（Unix 时间戳）
+            "iat": now,  # 签发时间
+            "sub": "access",  # 主题
+        }
+    )
 
     return jwt.encode(
         to_encode,
@@ -108,7 +112,7 @@ def get_user_from_token(
     try:
         return JWTUser(
             username=payload["username"],
-            session_id=payload["sid"],
+            sid=payload["sid"],
         )
     except (ValidationError, KeyError):
         return None

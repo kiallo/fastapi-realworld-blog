@@ -1,11 +1,13 @@
-from typing import Optional, List
 import datetime
+from typing import List, Optional
+
+from app.models.common import DateTimeModelMixin, IDModelMixin
 from app.models.domain.rwmodel import RWModel
-from app.models.common import IDModelMixin, DateTimeModelMixin
 
 
 class Article(IDModelMixin, DateTimeModelMixin, RWModel):
     """文章 Domain 模型"""
+
     slug: str
     title: str
     description: str
@@ -18,4 +20,5 @@ class Article(IDModelMixin, DateTimeModelMixin, RWModel):
 
 # 解决循环引用
 from app.models.domain.profiles import Profile  # noqa: E402
+
 Article.model_rebuild()

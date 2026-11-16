@@ -1,10 +1,12 @@
 from typing import Optional
+
+from app.models.common import DateTimeModelMixin, IDModelMixin
 from app.models.domain.rwmodel import RWModel
-from app.models.common import IDModelMixin, DateTimeModelMixin
 
 
 class User(RWModel):
     """用户基础模型 — 不含数据库字段"""
+
     username: str
     email: str
     bio: str = ""
@@ -20,6 +22,7 @@ class UserInDB(IDModelMixin, DateTimeModelMixin, User):
 
     额外字段：
     """
+
     salt: str
     hashed_password: str
 

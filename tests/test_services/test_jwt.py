@@ -1,13 +1,14 @@
 """JWT 服务测试"""
-import pytest
+
 from datetime import timedelta
+
+import pytest
 
 from app.services.jwt import (
     create_access_token_for_user,
     create_jwt_token,
     get_username_from_token,
 )
-
 
 SECRET_KEY = "test-secret-key-for-jwt"
 

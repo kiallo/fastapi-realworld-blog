@@ -1,6 +1,6 @@
 import pathlib
-import aiosql
 
+import aiosql
 
 # SQL 文件所在目录
 _sql_dir = pathlib.Path(__file__).parent / "sql"

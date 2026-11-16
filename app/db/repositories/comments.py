@@ -38,9 +38,7 @@ class CommentsRepository(BaseRepository):
                 requested_user=user,
             )
 
-        raise EntityDoesNotExist(
-            f"评论 {comment_id} 不存在"
-        )
+        raise EntityDoesNotExist(f"评论 {comment_id} 不存在")
 
     async def get_comments_for_article(
         self,

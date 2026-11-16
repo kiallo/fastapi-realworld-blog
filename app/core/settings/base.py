@@ -1,12 +1,15 @@
 from enum import Enum
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AppEnvTypes(str, Enum):
     """应用环境类型"""
+
     prod = "prod"
     dev = "dev"
     test = "test"
+
 
 class BaseAppSettings(BaseSettings):
     """所有环境共享的基础配置"""

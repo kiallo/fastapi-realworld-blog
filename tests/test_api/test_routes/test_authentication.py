@@ -33,20 +33,15 @@ async def test_register_success(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_register_duplicate_username(client: AsyncClient):
-    """测试重复注册：同一用户名第二次必须 400"""
-    payload = {
-        "username": "unique123",
-        "email": "unique123@test.com",
-        "password": "test123456",
-    }
-    # 第一次可能是 201（全新库）也可能是 400（库里已有这个用户），都接受。
-    # 但要显式断言，避免像原版那样把第一次的结果静默吞掉。
+    """同一用户名注册两次：第一次 201，第二次 400（不依赖库里残留数据）"""
+    payload = _unique_user_payload()
+
     first = await client.post("/users", json=payload)
-    assert first.status_code in (201, 400)
+    assert first.status_code == 201
 
     second = await client.post(
         "/users",
-        json={**payload, "email": "unique123_other@test.com"},
+        json={**payload, "email": f"dup_{payload['username']}@test.com"},
     )
     assert second.status_code == 400
 

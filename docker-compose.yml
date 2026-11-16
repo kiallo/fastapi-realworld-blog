@@ -1,4 +1,3 @@
-version: "3.9"
 
 services:
   db:
@@ -17,6 +16,17 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  test-db:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: realworld_test
+    ports:
+      - "127.0.0.1:5433:5432"
+
 
   redis:
     image: redis:7-alpine

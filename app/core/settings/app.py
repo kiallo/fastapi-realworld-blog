@@ -2,6 +2,7 @@ import logging
 import sys
 from typing import Optional
 from pydantic import SecretStr, PostgresDsn
+from pydantic_settings import SettingsConfigDict
 from loguru import logger
 from app.core.settings.base import BaseAppSettings, AppEnvTypes
 from app.core.logging import setup_logging
@@ -88,9 +89,14 @@ class ProdAppSettings(AppSettings):
 
 
 class TestAppSettings(AppSettings):
-    """测试环境配置"""
+    """测试环境配置：独立库 + 独立 Redis DB，且不吃 .env"""
+
     debug: bool = True
     title: str = "RealWorld Blog API [TEST]"
-    database_url: PostgresDsn = "postgresql://test:test@test-db:5432/test" # type: ignore
+    database_url: PostgresDsn = "postgresql://postgres:testpass@127.0.0.1:5433/realworld_test"  # type: ignore
+    redis_db: int = 15
     secret_key: SecretStr = SecretStr("test-secret-key")
     logging_level: int = logging.DEBUG
+
+    # .env 里有 DATABASE_URL，会覆盖上面的默认值 —— 测试配置必须自洽
+    model_config = SettingsConfigDict(env_file=None, extra="ignore")

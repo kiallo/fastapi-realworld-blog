@@ -1,6 +1,4 @@
 import time
-import uuid
-
 from fastapi import Request
 from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -52,8 +50,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     """详细日志记录中间件"""
 
     async def dispatch(self, request: Request, call_next):
-        # 生成请求ID（用于追踪）
-        request_id = str(uuid.uuid4())[:8]
+        # ★ request_id 由最外层的 ObservabilityMiddleware 生成，写进 scope["state"]。
+        #   这里只读，不再自己生成 —— 否则一个请求两个 ID，日志永远对不上。
+        #   取不到时用 "-"：说明中间件顺序配错了（Observability 不在最外层），
+        #   宁可日志里出现一个显眼的 "-"，也不要偷偷再生成一个 ID 把问题藏起来。
+        request_id = getattr(request.state, "request_id", "-")
 
         # 如果是POST/PUT请求，记录请求体（注意性能）
         if request.method in ["POST", "PUT", "PATCH"]:

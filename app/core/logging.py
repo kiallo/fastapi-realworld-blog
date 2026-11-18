@@ -42,7 +42,12 @@ class InterceptHandler(logging.Handler):
         )
 
 
-def setup_logging(log_level: int, loggers: tuple[str, ...]) -> None:
+def setup_logging(
+    log_level: int,
+    loggers: tuple[str, ...],
+    json_log_path: Optional[str] = None,
+    json_log_level: int = logging.INFO,
+) -> None:
     """
     配置全局日志：
     1. 移除 Loguru 默认 handler
@@ -73,6 +78,25 @@ def setup_logging(log_level: int, loggers: tuple[str, ...]) -> None:
             "<level>{message}</level>"
         ),
     )
+    # ② 结构化日志落文件：一行一个 JSON，方便 jq / grep / 后续导入
+    #
+    #   serialize=True    → {"text": "...", "record": {...}} 一整行 JSON
+    #   enqueue=True      → 磁盘写入交给后台线程，不阻塞事件循环。
+    #                       压测时这一项差别很明显：同步写文件会把 asyncio 卡住。
+    #   diagnose=False    → 异常时不要把局部变量打进日志。
+    #                       你的局部变量里有 token、有密码、有 LLM 的 key。
+    if json_log_path:
+        logger.add(
+            json_log_path,
+            level=json_log_level,
+            serialize=True,
+            enqueue=True,
+            rotation="10 MB",
+            retention="7 days",
+            encoding="utf-8",
+            backtrace=False,
+            diagnose=False,
+        )
 
     # ③ 用 InterceptHandler 接管所有标准库 logger
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)

@@ -54,6 +54,10 @@ class AppSettings(BaseAppSettings):
     logging_level: int = logging.INFO
     loggers: tuple[str, ...] = ("uvicorn", "uvicorn.error", "uvicorn.access")
 
+    # ===== 可观测性（本课新增）=====
+    # 结构化日志落哪个文件。设成 None 就不落盘（比如跑测试时）。
+    log_json_path: Optional[str] = "logs/app.jsonl"
+
     # ===== 组合属性 — 不存 .env，由其他字段计算得出 =====
 
     @property
@@ -71,6 +75,7 @@ class AppSettings(BaseAppSettings):
         setup_logging(
             log_level=self.logging_level,
             loggers=self.loggers,
+            json_log_path=self.log_json_path,
         )
 
 
@@ -101,6 +106,7 @@ class TestAppSettings(AppSettings):
     redis_db: int = 15
     secret_key: SecretStr = SecretStr("test-secret-key")
     logging_level: int = logging.DEBUG
+    log_json_path: Optional[str] = None
 
     # .env 里有 DATABASE_URL，会覆盖上面的默认值 —— 测试配置必须自洽
     model_config = SettingsConfigDict(env_file=None, extra="ignore")

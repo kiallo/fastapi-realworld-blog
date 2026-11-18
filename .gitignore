@@ -14,3 +14,7 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
+
+logs/
+realworld-before-seed.dump
+scripts/load/results/*.json

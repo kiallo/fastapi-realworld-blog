@@ -45,6 +45,7 @@ pyjwt = ">=2.8.0"
 gunicorn = ">=21.0"
 uvicorn-worker = ">=0.4"
 openai = ">=1.50.0"
+prometheus-client = "^0.26.0"
 
 
 [tool.poetry.group.dev.dependencies]

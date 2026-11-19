@@ -69,8 +69,11 @@ class ArticlesFilters(BaseModel):
     tag: Optional[str] = None
     author: Optional[str] = None
     favorited: Optional[str] = None
-    limit: int = DEFAULT_ARTICLES_LIMIT
-    offset: int = DEFAULT_ARTICLES_OFFSET
+    # ★ 上限 50：没有上限时，一个 ?limit=100000 就能打出一次数百 MB 的响应，
+    #   这不是"性能问题"，是可用性问题（一个请求拖垮整个进程）。
+    #   50 是 RealWorld 前端翻页习惯的 2.5 倍，够用。
+    limit: int = Field(default=DEFAULT_ARTICLES_LIMIT, ge=1, le=50)
+    offset: int = Field(default=DEFAULT_ARTICLES_OFFSET, ge=0)
 
 
 # 解决循环引用

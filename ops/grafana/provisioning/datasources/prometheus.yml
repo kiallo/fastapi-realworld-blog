@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    # ★ uid 必须和 dashboard JSON 里 datasource.uid 一致。
+    #   不一致时面板能打开，但每个图都报 "Datasource not found"。
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090      # 容器名，不是 localhost
+    isDefault: true
+    jsonData:
+      timeInterval: 5s

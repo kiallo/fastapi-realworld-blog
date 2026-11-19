@@ -1,0 +1,17 @@
+global:
+  # 5 秒抓一次。默认 15 秒太慢：你一轮压测的稳态段只有 2 分钟，
+  # 15 秒只能采到 8 个点，看不出拐点。
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: blog-api
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          # Windows / macOS 的 Docker Desktop：用 host.docker.internal 指向宿主机
+          # Linux：靠上面 compose 里的 extra_hosts 映射
+          - "host.docker.internal:18000"
+        labels:
+          # 这个标签会加到所有指标上。多环境时靠它区分。
+          env: local

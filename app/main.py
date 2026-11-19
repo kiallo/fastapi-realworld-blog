@@ -2,13 +2,15 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import asyncpg
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api.routes.api import router as api_router
 from app.core.config import get_app_settings
 from app.core.middleware import LoggingMiddleware, TimingMiddleware
+from app.core.observability import ObservabilityMiddleware
 from app.services.summary import build_summary_service
 
 
@@ -82,7 +84,16 @@ def get_application() -> FastAPI:
     # 把配置挂到 app.state 上（方便各模块访问）
     application.state.settings = settings
 
-    # ④ 添加中间件（CORS — 允许跨域请求）
+    # ④ 添加中间件
+    #
+    # ⚠️ Starlette 的 add_middleware 是 insert(0)：**后加的在最外层**。
+    #    执行顺序 = 注册顺序的倒序。
+    #
+    #    所以 Observability 必须**最后**注册，它才能在最外层：
+    #      请求 → [Observability] → [Logging] → [Timing] → [CORS] → 路由
+    #
+    #    代价说清楚：它在 CORS 外面，所以 500 响应不会带 CORS 头。
+    #    浏览器本来也读不到 500 的响应体，这个取舍是划算的。
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # 开发阶段允许所有来源
@@ -92,6 +103,17 @@ def get_application() -> FastAPI:
     )
     application.add_middleware(TimingMiddleware)
     application.add_middleware(LoggingMiddleware)
+    application.add_middleware(ObservabilityMiddleware)  # ← 最后加 = 最外层
+
+    # ⑤ /metrics —— 给 Prometheus 抓的
+    #
+    # 不用 app.mount("/metrics", make_asgi_app())：
+    #   1. mount 会多一层路由匹配，且 make_asgi_app 拿的是全局默认 REGISTRY，
+    #      将来做多进程（PROMETHEUS_MULTIPROC_DIR）时要换 registry，mount 的写法改不动；
+    #   2. 一个普通 GET 路由更好测（tests 里 client.get 就行）。
+    @application.get("/metrics", include_in_schema=False)
+    async def metrics() -> Response:
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     # ⑤ 挂载路由
     application.include_router(api_router)

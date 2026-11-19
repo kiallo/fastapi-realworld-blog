@@ -1,8 +1,8 @@
 from typing import AsyncGenerator, Optional
 
-from loguru import logger
 import redis.asyncio as redis
 from fastapi import Depends, HTTPException, Path, status
+from loguru import logger
 from slugify import slugify
 
 from app.api.dependencies.authentication import get_current_user_authorizer

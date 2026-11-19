@@ -80,7 +80,7 @@ async def test_request_id_header_is_unique(client):
 
     assert id1 and id2
     assert id1 != id2
-    assert len(id1) == 32          # uuid4().hex
+    assert len(id1) == 32  # uuid4().hex
 
 
 async def test_in_flight_returns_to_zero(client):

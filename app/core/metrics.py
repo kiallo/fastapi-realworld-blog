@@ -34,9 +34,20 @@ HTTP_REQUEST_DURATION = Histogram(
     "HTTP 请求耗时（秒）",
     labelnames=("method", "path", "status"),
     buckets=(
-        0.005, 0.01, 0.025, 0.05, 0.075,
-        0.1, 0.15, 0.2, 0.3, 0.5,
-        0.75, 1.0, 2.0, 5.0,
+        0.005,
+        0.01,
+        0.025,
+        0.05,
+        0.075,
+        0.1,
+        0.15,
+        0.2,
+        0.3,
+        0.5,
+        0.75,
+        1.0,
+        2.0,
+        5.0,
     ),
 )
 
@@ -53,5 +64,5 @@ HTTP_IN_FLIGHT = Gauge(
 CACHE_REQUESTS_TOTAL = Counter(
     "cache_requests_total",
     "缓存访问次数",
-    labelnames=("cache", "result"),   # result: hit | miss | error
+    labelnames=("cache", "result"),  # result: hit | miss | error
 )

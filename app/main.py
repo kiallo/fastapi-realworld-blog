@@ -1,16 +1,16 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 import asyncpg
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api.routes.api import router as api_router
 from app.core.config import get_app_settings
-from app.core.observability import ObservabilityMiddleware
 from app.core.middleware import LoggingMiddleware, TimingMiddleware
+from app.core.observability import ObservabilityMiddleware
 from app.services.summary import build_summary_service
 
 
@@ -103,7 +103,7 @@ def get_application() -> FastAPI:
     )
     application.add_middleware(TimingMiddleware)
     application.add_middleware(LoggingMiddleware)
-    application.add_middleware(ObservabilityMiddleware)   # ← 最后加 = 最外层
+    application.add_middleware(ObservabilityMiddleware)  # ← 最后加 = 最外层
 
     # ⑤ /metrics —— 给 Prometheus 抓的
     #

@@ -6,6 +6,7 @@ import redis.asyncio as redis
 from loguru import logger
 
 from app.core.dependencies import get_redis
+from app.core.metrics import CACHE_REQUESTS_TOTAL
 
 
 class ArticleCache:
@@ -84,19 +85,26 @@ class ArticleCache:
             cached = await self.redis.get(cache_key)
 
             if cached is None:
+                CACHE_REQUESTS_TOTAL.labels("article_list", "miss").inc()
                 logger.info(f"❌ 缓存未命中: {cache_key}")
                 return None
 
             if cached == self.NULL_SENTINEL:
                 # ★ 空值缓存命中：直接告诉调用方"结果就是空的"，不要去查库
+                #    它算命中：Redis 真的挡掉了一次数据库查询
+                CACHE_REQUESTS_TOTAL.labels("article_list", "hit").inc()
                 logger.info(f"🕳️ 空值命中（防穿透）: {cache_key}")
                 return []
 
+            CACHE_REQUESTS_TOTAL.labels("article_list", "hit").inc()
             logger.info(f"✅ 缓存命中: {cache_key}")
             return cast("list[Any]", json.loads(cached))
 
         except Exception as e:
             # ⚠️ 缓存出问题不能让业务挂掉 —— 降级成"未命中"，去查库
+            #    单独记 error：它和 miss 是两件事，
+            #    miss 是正常现象，error 是 Redis 挂了/超时了。
+            CACHE_REQUESTS_TOTAL.labels("article_list", "error").inc()
             logger.error(f"获取缓存失败，降级为查库: {e}")
             return None
 

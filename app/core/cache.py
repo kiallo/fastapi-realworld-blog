@@ -203,6 +203,50 @@ class ArticleCache:
             logger.error(f"设置缓存失败: {e}")
             return False
 
+
+     # ==================== 详情缓存（按 slug，第 27 课） ====================
+    # ⚠️ 为什么不用上面那两个按 article_id 的方法：
+    #    详情接口的入口参数是 slug，缓存键也必须用 slug。
+    #    否则要先查一次 id 才能查缓存 —— 那次查询已经把库打了，缓存等于没做。
+    SLUG_DETAIL_PREFIX = "articles:slugdetail"
+
+    def _slug_detail_key(self, slug: str) -> str:
+        return f"{self.SLUG_DETAIL_PREFIX}:{slug}"
+
+    async def get_detail_by_slug(self, slug: str) -> Optional[dict]:
+        """按 slug 取详情缓存。None = 未命中，去查库。"""
+        try:
+            cached = await self.redis.get(self._slug_detail_key(slug))
+            if cached is None:
+                CACHE_REQUESTS_TOTAL.labels("detail_slug", "miss").inc()
+                return None
+            CACHE_REQUESTS_TOTAL.labels("detail_slug", "hit").inc()
+            return cast("dict[str, Any]", json.loads(cached))
+        except Exception as e:
+            CACHE_REQUESTS_TOTAL.labels("detail_slug", "error").inc()
+            logger.error(f"取详情缓存失败，降级为查库: {e}")
+            return None
+
+    async def set_detail_by_slug(self, slug: str, article: dict, ttl: int = 60) -> bool:
+        """写详情缓存。
+
+        TTL 只有 60 秒，比列表的 300 秒短得多。原因：
+          列表页的用户能接受"最多 5 分钟前的内容"，
+          点开一篇文章却看到旧标题，会以为你数据丢了。
+        写操作会 invalidate_all_articles()（扫 articles:*），这个前缀也在里面，
+        所以作者改完文章缓存会立刻清掉，TTL 只是兜底。
+        """
+        try:
+            await self.redis.setex(
+                self._slug_detail_key(slug),
+                ttl,
+                json.dumps(article, ensure_ascii=False, default=str),
+            )
+            return True
+        except Exception as e:
+            logger.error(f"写详情缓存失败: {e}")
+            return False
+
     async def invalidate_article(self, article_id: int):
         """使文章缓存失效"""
         try:

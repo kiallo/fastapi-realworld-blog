@@ -1,3 +1,4 @@
+import os
 import time
 from fastapi import Request
 from loguru import logger
@@ -56,14 +57,18 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         #   宁可日志里出现一个显眼的 "-"，也不要偷偷再生成一个 ID 把问题藏起来。
         request_id = getattr(request.state, "request_id", "-")
 
-        # 如果是POST/PUT请求，记录请求体（注意性能）
-        if request.method in ["POST", "PUT", "PATCH"]:
+        # ⚠️ 请求体日志默认关闭，原因有两个：
+        #    ① 登录/注册的 body 里有明文密码和邮箱，打出来就是泄漏；
+        #    ② 每个写请求要把整个 body 读进内存，压测时是纯开销。
+        #    真要排查时用环境变量临时打开：$env:LOG_REQUEST_BODY="1"
+        if os.getenv("LOG_REQUEST_BODY") == "1" and request.method in ["POST", "PUT", "PATCH"]:
             try:
                 body = await request.body()
                 if body:
-                    logger.info(f"   Body: {body.decode('utf-8')[:500]}")  # 限制长度
-            except:
-                pass
+                    # 只记长度和字段名，不记值
+                    logger.info(f"   Body: {len(body)} bytes (内容已脱敏)")
+            except Exception as e:  # 不再裸 except
+                logger.debug(f"读取请求体失败（忽略）: {e}")
 
         # 处理请求
         start_time = time.monotonic()

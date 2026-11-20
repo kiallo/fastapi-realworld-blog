@@ -103,6 +103,9 @@ class TestAppSettings(AppSettings):
     debug: bool = True
     title: str = "RealWorld Blog API [TEST]"
     database_url: PostgresDsn = "postgresql://postgres:testpass@127.0.0.1:5433/realworld_test"  # type: ignore
+    # Windows 上 localhost 会先解析到 ::1，而 Docker 只映射了 127.0.0.1；
+    # redis-py 在 ::1 上超时后不会回退，所以测试必须显式写 IPv4。
+    redis_host: str = "127.0.0.1"
     redis_db: int = 15
     secret_key: SecretStr = SecretStr("test-secret-key")
     logging_level: int = logging.DEBUG

@@ -40,6 +40,27 @@ def event_loop():
     loop.close()
 
 
+@pytest.fixture(autouse=True)
+async def _reset_redis_client():
+    """每个用例前丢弃上一条用例的 Redis 连接。
+
+    RedisDependency 是模块级单例：第一次连接时把连接池绑在当时的事件循环上。
+    pytest-asyncio 每个用例新建一个循环，旧连接池会报 "Event loop is closed"，
+    现象是注册返回 201、但会话没写进去，之后所有请求 401「会话已失效」。
+    """
+    from app.core.dependencies import redis_dependency
+
+    redis_dependency._redis_client = None
+    yield
+    client = redis_dependency._redis_client
+    redis_dependency._redis_client = None
+    if client is not None:
+        try:
+            await client.aclose()  # type: ignore
+        except Exception:  # 循环可能已经关了，清理失败不影响结论
+            pass
+
+
 @pytest.fixture
 async def app():
     """

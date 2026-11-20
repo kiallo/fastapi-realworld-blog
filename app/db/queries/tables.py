@@ -16,6 +16,7 @@ class Users(Table):
     email: str
     salt: str
     hashed_password: str
+    role: str
     bio: str
     image: str
     created_at: str

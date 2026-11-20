@@ -66,3 +66,11 @@ CACHE_REQUESTS_TOTAL = Counter(
     "缓存访问次数",
     labelnames=("cache", "result"),  # result: hit | miss | error
 )
+# ---------------------------------------------------------------- ⑤ 授权
+# 只记"被拒"：成功不需要额外计数（http_requests_total 已经有了）。
+# 标签只有 permission 和 role，基数 = 4 × 3 = 12，安全。
+AUTHZ_DENIED_TOTAL = Counter(
+    "authz_denied_total",
+    "授权被拒次数",
+    labelnames=("permission", "role"),
+)

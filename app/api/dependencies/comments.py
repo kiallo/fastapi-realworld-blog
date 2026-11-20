@@ -4,11 +4,13 @@ from fastapi import Depends, HTTPException, Path
 from starlette import status
 
 from app.api.dependencies import articles, authentication, database
+from app.core.metrics import AUTHZ_DENIED_TOTAL
+from app.core.permissions import Permission, role_has_permission
 from app.db.errors import EntityDoesNotExist
 from app.db.repositories.comments import CommentsRepository
 from app.models.domain.articles import Article
 from app.models.domain.comments import Comment
-from app.models.domain.users import User
+from app.models.domain.users import User, UserInDB
 from app.resources import strings
 from app.services.comments import check_user_can_modify_comment
 
@@ -39,11 +41,20 @@ async def get_comment_by_id_from_path(
 
 def check_comment_modification_permissions(
     comment: Comment = Depends(get_comment_by_id_from_path),
-    user: User = Depends(authentication.get_current_user_authorizer()),
+    user: UserInDB = Depends(authentication.get_current_user_authorizer()),
 ) -> None:
-    """检查评论修改权限 — 只有评论作者可以修改/删除"""
-    if not check_user_can_modify_comment(comment, user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=strings.USER_IS_NOT_AUTHOR_OF_ARTICLE,
-        )
+    """评论作者本人，或持有 comment:delete:any 的角色（管理员）"""
+    if check_user_can_modify_comment(comment, user):
+        return
+
+    if role_has_permission(user.role, Permission.COMMENT_DELETE_ANY):
+        return
+
+    AUTHZ_DENIED_TOTAL.labels(
+        permission=Permission.COMMENT_DELETE_ANY.value,
+        role=user.role.value,
+    ).inc()
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=strings.USER_IS_NOT_AUTHOR_OF_ARTICLE,
+    )

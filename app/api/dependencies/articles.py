@@ -9,6 +9,8 @@ from app.api.dependencies.authentication import get_current_user_authorizer
 from app.api.dependencies.database import get_repository
 from app.core.cache import ArticleCache
 from app.core.dependencies import get_redis
+from app.core.metrics import AUTHZ_DENIED_TOTAL
+from app.core.permissions import Permission, role_has_permission
 from app.db.repositories.articles import ArticlesRepository
 from app.models.domain.articles import Article
 from app.models.domain.users import UserInDB
@@ -84,9 +86,19 @@ async def check_article_modification_permissions(
     current_user: UserInDB = Depends(get_current_user_authorizer()),
     article: Article = Depends(get_article_by_slug_from_path),
 ) -> None:
-    """检查文章修改权限 — 只有作者本人可以修改"""
-    if article.author and article.author.username != current_user.username:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="你没有权限修改这篇文章",
-        )
+    """作者本人，或持有 article:update:any 的角色（管理员）"""
+    is_author = bool(article.author) and article.author.username == current_user.username
+    if is_author:
+        return
+
+    if role_has_permission(current_user.role, Permission.ARTICLE_UPDATE_ANY):
+        return
+
+    AUTHZ_DENIED_TOTAL.labels(
+        permission=Permission.ARTICLE_UPDATE_ANY.value,
+        role=current_user.role.value,
+    ).inc()
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="你没有权限修改这篇文章",
+    )

@@ -8,9 +8,9 @@ from app.models.domain.rwmodel import RWModel
 class Role(str, Enum):
     """角色 — 只有三个，多的不加（见本课 1.2 的取舍）"""
 
-    READER = "reader"   # 只读：能看，不能写
-    AUTHOR = "author"   # 默认：能写自己的文章和评论
-    ADMIN = "admin"     # 管理员：能改删任何人的东西
+    READER = "reader"  # 只读：能看，不能写
+    AUTHOR = "author"  # 默认：能写自己的文章和评论
+    ADMIN = "admin"  # 管理员：能改删任何人的东西
 
 
 class User(RWModel):
@@ -31,6 +31,7 @@ class UserInDB(IDModelMixin, DateTimeModelMixin, User):
 
     额外字段：
     """
+
     role: Role = Role.AUTHOR
     salt: str
     hashed_password: str

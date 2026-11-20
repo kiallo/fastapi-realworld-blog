@@ -56,7 +56,7 @@ async def _reset_redis_client():
     redis_dependency._redis_client = None
     if client is not None:
         try:
-            await client.aclose() # type: ignore
+            await client.aclose()  # type: ignore
         except Exception:  # 循环可能已经关了，清理失败不影响结论
             pass
 

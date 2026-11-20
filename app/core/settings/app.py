@@ -99,7 +99,7 @@ class ProdAppSettings(AppSettings):
 
 class TestAppSettings(AppSettings):
     """测试环境配置：独立库 + 独立 Redis DB，且不吃 .env"""
-    
+
     debug: bool = True
     title: str = "RealWorld Blog API [TEST]"
     database_url: PostgresDsn = "postgresql://postgres:testpass@127.0.0.1:5433/realworld_test"  # type: ignore

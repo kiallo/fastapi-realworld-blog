@@ -57,7 +57,9 @@ async def test_admin_can_delete_others_article(client: AsyncClient):
     author_token = await _register(client, author)
     slug = await _create_article(client, author_token)
 
-    resp = await client.delete(f"/articles/{slug}", headers={"Authorization": f"Token {admin_token}"})
+    resp = await client.delete(
+        f"/articles/{slug}", headers={"Authorization": f"Token {admin_token}"}
+    )
     assert resp.status_code == 204
 
 
@@ -69,7 +71,9 @@ async def test_author_cannot_delete_others_article(client: AsyncClient):
     intruder_token = await _register(client, intruder)
     slug = await _create_article(client, owner_token)
 
-    resp = await client.delete(f"/articles/{slug}", headers={"Authorization": f"Token {intruder_token}"})
+    resp = await client.delete(
+        f"/articles/{slug}", headers={"Authorization": f"Token {intruder_token}"}
+    )
     assert resp.status_code == 403
 
 
@@ -116,7 +120,9 @@ async def test_denied_request_increments_metric(client: AsyncClient):
     intruder_token = await _register(client, intruder)
     slug = await _create_article(client, owner_token)
 
-    denied = await client.delete(f"/articles/{slug}", headers={"Authorization": f"Token {intruder_token}"})
+    denied = await client.delete(
+        f"/articles/{slug}", headers={"Authorization": f"Token {intruder_token}"}
+    )
     assert denied.status_code == 403
 
     metrics = await client.get("http://testserver/metrics")

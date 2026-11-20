@@ -6,6 +6,7 @@ SELECT
     email,
     salt,
     hashed_password,
+    role,
     bio,
     image,
     created_at,
@@ -22,6 +23,7 @@ SELECT
     email,
     salt,
     hashed_password,
+    role,
     bio,
     image,
     created_at,
@@ -39,15 +41,17 @@ INSERT INTO
         salt,
         hashed_password,
         bio,
-        image
+        image,
+        role
     )
-VALUES (:username, :email, :salt, :hashed_password, :bio, :image)
+VALUES (:username, :email, :salt, :hashed_password, :bio, :image, 'author')
 RETURNING
     id,
     username,
     email,
     salt,
     hashed_password,
+    role,
     bio,
     image,
     created_at,

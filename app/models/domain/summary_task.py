@@ -32,7 +32,7 @@ class SummaryTask(BaseModel):
     task_id: str
     article_id: int
     status: TaskStatus = TaskStatus.PENDING
-    attempts: int = 0                     # 已尝试次数（含首次）
-    error: Optional[str] = None           # 失败原因（只给 failed 用）
+    attempts: int = 0  # 已尝试次数（含首次）
+    error: Optional[str] = None  # 失败原因（只给 failed 用）
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

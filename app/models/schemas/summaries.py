@@ -1,7 +1,7 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import Field
-from typing import Literal, Optional
+
 from app.models.schemas.rwschema import RWSchema
 
 
@@ -19,6 +19,7 @@ class ArticleSummaryInResponse(RWSchema):
     summary: ArticleSummaryContent
     model: str
     cached: bool = False
+
 
 class SummaryTaskInResponse(RWSchema):
     """任务提交/轮询的统一响应。

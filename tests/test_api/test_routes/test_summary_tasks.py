@@ -116,7 +116,7 @@ async def test_submit_returns_202_with_task_id(client, wired):
     resp = await client.post(f"/articles/{SLUG}/summary")
     assert resp.status_code == 202
     body = resp.json()
-    assert body["taskId"]          # 注意：响应是 camelCase，不是 task_id
+    assert body["taskId"]  # 注意：响应是 camelCase，不是 task_id
     assert body["status"] in ("pending", "running")
 
 
@@ -131,7 +131,7 @@ async def test_second_submit_returns_same_task_id(client, wired, fake_service):
     original = fake_service.generate
 
     async def _slow_generate(**kwargs):
-        await asyncio.sleep(0.3)          # 制造一个"正在跑"的窗口
+        await asyncio.sleep(0.3)  # 制造一个"正在跑"的窗口
         return await original(**kwargs)
 
     fake_service.generate = _slow_generate

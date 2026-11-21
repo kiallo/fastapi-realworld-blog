@@ -1,4 +1,5 @@
 import asyncio
+
 import redis.asyncio as redis
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from loguru import logger
@@ -8,14 +9,13 @@ from app.api.dependencies.authentication import get_current_user_authorizer
 from app.core.cache import ArticleCache
 from app.core.dependencies import get_redis
 from app.core.task_store import SummaryTaskStore
-from app.models.domain.summary_task import TaskStatus
-from app.models.schemas.summaries import SummaryTaskInResponse
-from app.services.summary_tasks import run_summary_task
 from app.models.domain.articles import Article
+from app.models.domain.summary_task import TaskStatus
 from app.models.domain.users import UserInDB
 from app.models.schemas.summaries import (
     ArticleSummaryContent,
     ArticleSummaryInResponse,
+    SummaryTaskInResponse,
 )
 from app.services.summary import (
     SummaryError,
@@ -23,6 +23,7 @@ from app.services.summary import (
     SummaryTimeoutError,
     get_summary_service,
 )
+from app.services.summary_tasks import run_summary_task
 
 router = APIRouter()
 

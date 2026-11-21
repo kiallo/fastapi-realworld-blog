@@ -1,10 +1,11 @@
 """摘要接口的 8 个分支。
 
-GET  /articles/{slug}/summary   404 无缓存 / 200 有缓存
-POST /articles/{slug}/summary   403 非作者 / 200 缓存命中 / 200 首次生成
-                               409 锁被占 / 503 LLM 未配置 / 504 超时
+GET  /articles/{slug}/summary        404 无缓存 / 200 有缓存
+POST /articles/{slug}/summary        403 非作者 / 202 缓存命中 / 202 建任务
+                                     503 LLM 未配置
+GET  /articles/{slug}/summary/tasks/{task_id}   200 状态 / 404 不存在
 
-⚠️ 两个容易踩的点：
+⚠️ 三个容易踩的点：
 
 1) articles_summary.py 里是 `get_summary_service(request)` 直接调用，
    不是 Depends，所以 dependency_overrides 对它无效，
@@ -13,8 +14,13 @@ POST /articles/{slug}/summary   403 非作者 / 200 缓存命中 / 200 首次生
 2) 这里自定义了 client fixture（不跑 lifespan），
    因为 lifespan 会把 state.summary_service 重设为 None，
    而且会真实连 PostgreSQL，8 条测试要多花 6 秒。
+
+3) 第 29 课把 POST 从「同步返回 200」改成了「202 + 任务」，
+   原来断言 200/409/504 的四条已迁移：409 改成"连点只调一次模型"，
+   504 改成"任务落 failed"。
 """
 
+import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
@@ -161,41 +167,74 @@ async def test_post_forbidden_for_non_author(client, setup_api, other_user):
     assert response.json()["errors"]["body"][0] == "只有作者可以生成摘要"
 
 
+async def _wait_task_done(client, task_id: str, timeout: float = 5.0) -> str:
+    """轮询到终态，返回最终 status。
+
+    固定 sleep 在慢机器上会 flaky；这里按时间上限轮询，
+    最多等 timeout 秒，超时直接失败（而不是返回中间状态）。
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    status = "pending"
+    while loop.time() < deadline:
+        resp = await client.get(f"/articles/{SLUG}/summary/tasks/{task_id}")
+        status = resp.json()["status"]
+        if status in ("succeeded", "failed"):
+            return status
+        await asyncio.sleep(0.02)
+    raise AssertionError(f"任务 {task_id} 超时未终态，最后状态 {status}")
+
+
 async def test_post_returns_cache_without_calling_llm(
     client, setup_api, fake_redis, article, fake_service
 ):
-    """已有缓存时直接返回：不调模型、不加锁、不花钱"""
+    """已有缓存：不建任务、不调模型，直接返回 succeeded"""
     await ArticleCache(fake_redis).set_article_summary(article.id, CACHED_PAYLOAD)
 
     response = await client.post(f"/articles/{SLUG}/summary")
 
-    assert response.status_code == 200
-    assert response.json()["cached"] is True
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "succeeded"
+    assert body["taskId"] == f"cached-{article.id}"
+    assert body["summary"]["summary"] == CACHED_PAYLOAD["summary"]["summary"]
     fake_service.generate.assert_not_awaited()
 
 
 async def test_post_generates_and_writes_cache(client, setup_api, fake_redis, article):
+    """首次提交：202 + 后台跑完 + 缓存落库"""
     response = await client.post(f"/articles/{SLUG}/summary")
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["cached"] is False
-    assert body["model"] == "test-model"
+    assert response.status_code == 202
+    task_id = response.json()["taskId"]
+
+    status = await _wait_task_done(client, task_id)
+    assert status == "succeeded"
 
     cached = await ArticleCache(fake_redis).get_article_summary(article.id)
     assert cached is not None, "生成后必须落缓存，否则下次还得再花一次钱"
 
 
-async def test_post_returns_409_when_lock_held(
-    client, setup_api, fake_redis, article, fake_service
-):
-    """并发请求拿不到锁 → 409，不排队、不重复调模型"""
-    await fake_redis.set(f"summary:lock:{article.id}", "1", ex=60)
+async def test_concurrent_submit_calls_model_once(client, setup_api, fake_service):
+    """连点两次：模型只被调用一次（钱只花一次）——原来 409 那条的继任者"""
+    original = fake_service.generate
+    calls = 0
 
-    response = await client.post(f"/articles/{SLUG}/summary")
+    async def _slow_generate(**kwargs):
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0.2)  # 制造"正在跑"的窗口
+        return await original(**kwargs)
 
-    assert response.status_code == 409
-    fake_service.generate.assert_not_awaited()
+    fake_service.generate = _slow_generate
+
+    first = await client.post(f"/articles/{SLUG}/summary")
+    second = await client.post(f"/articles/{SLUG}/summary")
+
+    assert first.json()["taskId"] == second.json()["taskId"]
+
+    await _wait_task_done(client, first.json()["taskId"])
+    assert calls == 1, "连点两次只该调一次模型，否则钱要花两次"
 
 
 async def test_post_returns_503_when_llm_not_configured(client, setup_api):
@@ -208,10 +247,17 @@ async def test_post_returns_503_when_llm_not_configured(client, setup_api):
     assert response.json()["errors"]["body"][0] == "LLM 未配置，摘要功能不可用"
 
 
-async def test_post_returns_504_on_timeout(client, setup_api, fake_service):
+async def test_post_timeout_marks_task_failed(client, setup_api, fake_service):
+    """超时不再返回 504，而是任务落到 failed（执行器还会重试一次，约 1 秒）"""
     fake_service.generate = AsyncMock(side_effect=SummaryTimeoutError("超时"))
 
     response = await client.post(f"/articles/{SLUG}/summary")
 
-    assert response.status_code == 504
-    assert "超时" in response.json()["errors"]["body"][0]
+    assert response.status_code == 202
+
+    task_id = response.json()["taskId"]
+    status = await _wait_task_done(client, task_id)
+    assert status == "failed"
+
+    poll = await client.get(f"/articles/{SLUG}/summary/tasks/{task_id}")
+    assert "超时" in poll.json()["error"]

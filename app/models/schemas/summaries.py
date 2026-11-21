@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import Field
 
@@ -19,3 +19,16 @@ class ArticleSummaryInResponse(RWSchema):
     summary: ArticleSummaryContent
     model: str
     cached: bool = False
+
+
+class SummaryTaskInResponse(RWSchema):
+    """任务提交/轮询的统一响应。
+
+    提交时只有 task_id + status；轮询到 succeeded 才有 summary。
+    """
+
+    task_id: str
+    status: Literal["pending", "running", "succeeded", "failed"]
+    summary: Optional[ArticleSummaryContent] = None
+    model: Optional[str] = None
+    error: Optional[str] = None

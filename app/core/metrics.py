@@ -74,3 +74,23 @@ AUTHZ_DENIED_TOTAL = Counter(
     "授权被拒次数",
     labelnames=("permission", "role"),
 )
+
+# ---------------------------------------------------------------- ⑥ 异步任务
+# status 只有 4 个取值，基数安全（不要加 task_id / article_id 标签）。
+SUMMARY_TASKS_TOTAL = Counter(
+    "summary_tasks_total",
+    "摘要任务结束次数",
+    labelnames=("status",),  # succeeded | failed
+)
+
+# 桶按"一次 LLM 调用的真实量级"定：0.5s 到 30s。
+SUMMARY_TASK_DURATION = Histogram(
+    "summary_task_duration_seconds",
+    "摘要任务执行耗时（秒）",
+    buckets=(0.5, 1, 2, 5, 10, 20, 30),
+)
+
+SUMMARY_TASK_RETRIES = Counter(
+    "summary_task_retries_total",
+    "摘要任务重试次数",
+)

@@ -292,3 +292,17 @@ $env:APP_ENV="test"
 - 日志用 loguru 统一接管，中间件负责耗时统计
 
 它是学习 FastAPI 工程化架构的典型范例。
+
+---
+
+## 性能与权限（阶段 1–3 的扩展）
+
+| 主题 | 结论 | 入口 |
+|---|---|---|
+| 可观测性 | `/metrics` 暴露 RED 指标 + 缓存/授权计数；JSON 日志带 `request_id` | `app/core/observability.py`、`app/core/metrics.py` |
+| 压测与优化 | 详情缓存把 P50 从 9.5ms 降到 7.4ms，**P95 不变**（尾延迟不在数据库） | [`docs/loadtest-report.md`](docs/loadtest-report.md) |
+| 容量 | 50 VU 下 P95 约 20ms；100 VU 出现 ~375 QPS 平台期 | [`docs/baseline.md`](docs/baseline.md) |
+| RBAC | 角色存库（`users.role`）、权限存代码；拒绝计数 `authz_denied_total` | `app/core/permissions.py` |
+| 异步任务 | `POST /articles/{slug}/summary` 返回 202 + taskId，幂等键 `summary:active:{id}`，失败进死信 | `app/services/summary_tasks.py` |
+
+完整说明（含决策与"没做的事"）：[`docs/project-notes.md`](docs/project-notes.md)
